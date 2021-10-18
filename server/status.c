@@ -207,6 +207,7 @@ void Connection_Running(struct Connection *cont)
                 Write_Message(cont->connection_id, message_parameter_error);
                 break;
             }
+            Close_connection(cont);
             int port = ip_port >> 32;
             int ip = ip_port ^ (((long long)port) << 32);
             Set_IP_Port(ip, port, PORT_MODE, cont);
@@ -225,9 +226,16 @@ void Connection_Running(struct Connection *cont)
                 Write_Message(cont->connection_id, message_parameter_error);
                 break;
             }
+            Close_connection(cont);
             int port = ip_port >> 32;
             int ip = ip_port ^ (((long long)port) << 32);
-            Set_IP_Port(ip, port, PASV_MODE, cont);
+            if (Set_IP_Port(ip, port, PASV_MODE, cont))
+            {
+                printf("connection %d: pasv fail\n", cont->connection_id);
+                char message_pasv_fail[30] = "425 PASV connection fail.\r\n";
+                Write_Message(cont->connection_id, message_pasv_fail);
+                break;
+            }
             printf("connection %d: ip:%s port:%d mode:pasv\n", cont->ip, cont->port);
             char message_pasv[60] = "227 Entering Passive Mode (";
             int len = strlen(message_pasv);
@@ -289,24 +297,68 @@ void Connection_Running(struct Connection *cont)
 }
 
 /*
+获得一个随机端口
+返回：
+    随机端口值
+*/
+int Get_Random_Port()
+{
+    return 20000 + rand() % 45536;
+}
+
+/*
 设置连接的ip与端口
 参数：
     ip：ip数字
     port：端口数字
     mode：设置连接模式
     cont：连接结构体
+返回：
+    0成功 1失败
 */
-void Set_IP_Port(int ip, int port, int mode, struct Connection *cont)
+bool Set_IP_Port(int ip, int port, int mode, struct Connection *cont)
 {
     Close_Connection(cont);
     int len = 0;
     for (int i = 0; i < 4; i++)
         Write_Digit((ip >> ((3 - i) * 8)) & 255, cont->ip, &len), cont->ip[len++] = '.';
     cont->ip[len - 1] = '\0';
-    cont->port = 0;
+    cont->port = port;
     cont->connection_mode = mode;
+    if (mode == PASV_MODE)
+    {
+        cont->port = Get_Random_Port();
+        struct sockaddr_in Address;
+        if ((cont->connection_listen = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+        {
+            printf("Error socket(): %s(%d)\n", strerror(errno), errno);
+            return 1;
+        }
+
+        memset(&Address, 0, sizeof(Address));
+        Address.sin_family = AF_INET;
+        Address.sin_port = htons(cont->port);
+
+        if (bind(cont->connection_listen, (struct sockaddr *)&Address, sizeof(Address)))
+        {
+            printf("Error bind(): %s(%d)\n", strerror(errno), errno);
+            return 1;
+        }
+
+        if (listen(cont->connection_listen, 10) == -1)
+        {
+            printf("Error listen(): %s(%d)\n", strerror(errno), errno);
+            return 1;
+        }
+    }
+    return 0;
 }
 
+/*
+关闭连接id
+参数：
+    id：连接id
+*/
 void Close_connectionid(int id)
 {
     if (id != -1)

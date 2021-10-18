@@ -40,7 +40,8 @@ int Get_Connection();
 void Run_Connection(void *arg);
 void Connection_Login(struct Connection *cont);
 void Connection_Runing(struct Connection *cont);
-void Set_IP_Port(int ip, int port, int mode, struct Connection *cont);
+bool Set_IP_Port(int ip, int port, int mode, struct Connection *cont);
 void Close_connection(struct Connection *cont);
+int Get_Random_Port();
 
 #endif

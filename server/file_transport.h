@@ -5,14 +5,17 @@
 
 struct File_Transport_Info
 {
-    char dir[root_maxlen];
-    char file_name[root_maxlen];
+    char file_dir[root_maxlen];
+    int connection_data;
+    int connection_id;
 };
 
 struct File_Transport_Info *Get_File_Transport_Info(struct Connection *cont);
 void Command_RETR(struct Connection *cont);
 bool RETR_Check(struct Connection *cont);
 bool Connect_PORT(struct Connection *cont);
-void File_Transport(struct File_Transport_Info *info);
+bool Connect_PASV(struct Connection *cont);
+void File_Transport(void *info_);
+FILE *Get_File(char *dir);
 
 #endif
