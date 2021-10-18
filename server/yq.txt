@@ -1,0 +1,23 @@
+Then, you will be asked to create, from scratch, a miniature FTP server with the following characteristics:
+Your server must serve files from a designated directory on your system to clients making requests
+    on a designated TCP port.
+Your server must support connections from multiple clients.
+Your server must handle USER, PASS, RETR, STOR, QUIT, SYST, TYPE, PORT, PASV, MKD, CWD,
+    PWD, LIST, RMD, RNFR, RNTO commands from the clients. You may support other commands.
+You may assume that all data connections will be binary - i.e., you can choose to ignore TYPE A
+    requests. Binary mode means that you should transfer the data without modifying/converting it in
+    any way.
+You must use the Berkeley Socket API and write your server in C, which indicates that you must
+    write your server running with GNU/Linux. 
+    You may not use any libraries containing code specifically designed to implement FTP functionality. 
+    We suggest that you compile your code with gcc orclang.
+Each Unix vendor has its own special version of the “make” program builder, and each one has its
+    own special beloved features. For this project, we will require that you use GNU Make. The makefile
+    for this project should be trivial.
+If your server emits debugging or trace information on the standard output or standard error streams,
+    it should suppress this output.
+Handling invalid input reasonably and generating defensible error codes.
+Support integral large file transmission.
+Support connections from multiple clients simultaneously.
+(Optional) Resume transmission after connection terminated.
+(Optional) File transmission without blocking the server.
