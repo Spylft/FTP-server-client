@@ -33,6 +33,8 @@ struct Connection
     char ip[ip_maxlen];
     int port;
     char dir[root_maxlen];
+    char rename_dir[root_maxlen];
+    int is_RNFR; //标识是否为RNFR操作
 };
 struct Connection *New_Connection(int connection_id);
 bool Server_Init();

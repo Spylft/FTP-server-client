@@ -111,3 +111,144 @@ bool Decode_Arg(int argc, char *argv[])
     }
     return 0;
 }
+
+/*
+新建地址
+参数：
+    cont：连接结构体
+返回：
+    0成功 -1失败
+ */
+bool Make_Dir(struct Connection *cont)
+{
+    char cmd[root_maxlen];
+    sprintf(cmd, "mkdir -p %s/%s/%s", root, cont->dir, cont->message + 4);
+    return system(cmd);
+}
+
+/*
+转换目录
+参数：
+    cont：连接结构体
+*/
+void Command_CWD(struct Connection *cont)
+{
+    char path[root_maxlen];
+    if (cont->message[4] != '/')
+    {
+        sprintf(path, "%s/%s/%s", root, cont->dir, cont->message + 4);
+    }
+    else
+    {
+        sprintf(path, "%s/%s", root, cont->message + 4);
+    }
+    if ((cont->message[4] == '.' && cont->message[5] == '.' && cont->message[6] == '\0') || (access(path, 0)))
+    {
+        printf("connection %d: cwd fail\n", cont->connection_id);
+        char message_cwd_fail[30] = "451 Path error.\r\n";
+        Write_Message(cont->connection_id, message_cwd_fail);
+    }
+    else
+    {
+        strcat(cont->dir, cont->message + 4);
+        printf("connection %d: dir:%s\n", cont->connection_id, cont->dir);
+        char message_cwd_success[30] = "250 CWD success.\r\n";
+        Write_Message(cont->connection_id, message_cwd_success);
+    }
+}
+
+/*
+删除指定目录
+参数：
+    cont：连接结构体
+*/
+void Command_RMD(struct Connection *cont)
+{
+    char path[root_maxlen];
+    if (cont->message[4] != '/')
+    {
+        sprintf(path, "%s/%s/%s", root, cont->dir, cont->message + 4);
+    }
+    else
+    {
+        sprintf(path, "%s/%s", root, cont->message + 4);
+    }
+    if (access(path, 0))
+    {
+        printf("connection %d: rmd fail\n", cont->connection_id);
+        char message_cwd_fail[30] = "451 Path error.\r\n";
+        Write_Message(cont->connection_id, message_cwd_fail);
+    }
+    else
+    {
+        rmdir(path);
+        printf("connection %d: rmd:%s\n", cont->connection_id, path);
+        char message_rmd_success[30] = "250 RMD success.\r\n";
+        Write_Message(cont->connection_id, message_rmd_success);
+    }
+}
+
+/*
+确定重命名文件/目录
+参数：
+    cont：连接结构体
+*/
+void Command_RNFR(struct Connection *cont)
+{
+    if (cont->message[5] == '/')
+    {
+        sprintf(cont->rename_dir, "%s/%s", root, cont->message + 5);
+    }
+    else
+    {
+        sprintf(cont->rename_dir, "%s/%s/%s", root, cont->dir, cont->message + 5);
+    }
+    if (access(cont->rename_dir, 0))
+    {
+        printf("connection %d: access path error\n", cont->connection_id);
+        char message_rnfr_error[30] = ".\r\n";
+        Write_Message(cont->connection_id, message_rnfr_error);
+        return;
+    }
+    char message_rnfr_success[30] = "350 RNFR okay.\r\n";
+    Write_Message(cont->connection_id, message_rnfr_success);
+}
+
+/*
+确定重命名文件/目录名称
+参数：
+    cont：连接结构体
+*/
+void Command_RNTO(struct Connection *cont)
+{
+    if (strlen(cont->message) <= 5)
+    {
+        printf("connection %d: parament error\n", cont->connection_id);
+        char message_para_error[30] = "504 Parament error.\r\n";
+        Write_Message(cont->connection_id, message_para_error);
+        return;
+    }
+
+    char cmd[root_maxlen * 2], nowpath[root_maxlen];
+    if (cont->message[5] == '/')
+    {
+        sprintf(nowpath, "%s/%s", root, cont->message + 5);
+    }
+    else
+    {
+        sprintf(nowpath, "%s/%s/%s", root, cont->dir, cont->message + 5);
+    }
+    sprintf(cmd, "rm %s %s", cont->rename_dir, nowpath);
+    if (system(cmd))
+    {
+        printf("connection %d: rename fail\n", cont->connection_id);
+        char message_rename_fail[30] = "451 Fail to rename.\r\n";
+        Write_Message(cont->connection_id, message_rename_fail);
+    }
+    else
+    {
+        printf("connection %d: rename success\n", cont->connection_id);
+        char message_rename_success[30] = "250 Rename success.\r\n";
+        Write_Message(cont->connection_id, message_rename_success);
+    }
+}

@@ -5,6 +5,18 @@
 #define _COMMAND_H_
 
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include <memory.h>
+#include <unistd.h>     /* defines STDIN_FILENO, system calls,etc */
+#include <sys/types.h>  /* system data type definitions */
+#include <sys/socket.h> /* socket specific definitions */
+#include <netinet/in.h> /* INET constants and stuff */
+#include <arpa/inet.h>  /* IP address conversion stuff */
+#include <netdb.h>      /* gethostbyname */
+#include <errno.h>
 
 #define USER 1
 #define PASS 2
@@ -22,6 +34,7 @@
 #define RMD 14
 #define RNFR 15
 #define RNTO 16
+#define ABOR 17
 
 #define socket_maxlen 8192
 #define root_maxlen 300
@@ -37,5 +50,10 @@ extern char *root;
 int Identify_Commandid(char *command);
 
 bool Decode_Arg(int argc, char *argv[]);
+bool Make_Dir(struct Connection *cont);
+void Command_CWD(struct Connection *cont);
+void Command_RMD(struct Connection *cont);
+void Command_RNFR(struct Connection *cont);
+void Command_RNTO(struct Connection *cont);
 
 #endif

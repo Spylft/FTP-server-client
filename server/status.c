@@ -18,6 +18,7 @@ struct Connection *New_Connection(int connection_id)
     ret->connection_mode = -1;
     ret->connection_data = -1;
     ret->connection_listen = -1;
+    ret->is_RNFR = 0;
     strcpy(ret->dir, root);
     return ret;
 }
@@ -161,7 +162,13 @@ void Connection_Running(struct Connection *cont)
         {
         case USER:
         {
-
+            if (strlen(cont->message) <= 5)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
+            }
             printf("connection %d: logged already\n", cont->connection_id);
             char message_logged[30] = "503 Logged already.\r\n";
             Write_Message(cont->connection_id, message_logged);
@@ -169,6 +176,13 @@ void Connection_Running(struct Connection *cont)
         }
         case PASS:
         {
+            if (strlen(cont->message) <= 5)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
+            }
             printf("connection %d: logged already\n", cont->connection_id);
             char message_logged[30] = "503 Logged already.\r\n";
             Write_Message(cont->connection_id, message_logged);
@@ -177,30 +191,100 @@ void Connection_Running(struct Connection *cont)
 
         case RETR:
         {
+            if (strlen(cont->message) <= 5)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
+            }
             printf("connection %d: retr %s\n", cont->connection_id, cont->message + 5);
             Command_RETR(cont);
             break;
         }
         case STOR:
         {
+            if (strlen(cont->message) <= 5)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
+            }
             printf("connection %d: stor %s\n", cont->connection_id, cont->message + 5);
             Command_STOR(cont);
             break;
         }
         case QUIT:
-            /* code */ {
-                break;
+        {
+            if (strlen(cont->message) > 4)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
             }
+            printf("connection %d: logout\n", cont->connection_id);
+            char message_QUIT[30] = "221 Goodbye.\r\n";
+            Write_Message(cont->connection_id, message_QUIT);
+            Close_connection(cont);
+            close(cont->connection_id);
+            free(cont);
+            break;
+        }
+        case ABOR:
+        {
+            if (strlen(cont->message) > 4)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
+            }
+            printf("connection %d: logout\n", cont->connection_id);
+            char message_QUIT[30] = "221 Goodbye.\r\n";
+            Write_Message(cont->connection_id, message_QUIT);
+            Close_connection(cont);
+            close(cont->connection_id);
+            free(cont);
+            break;
+        }
         case SYST:
-            /* code */ {
-                break;
+        {
+            if (strlen(cont->message) > 4)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
             }
+            char message_SYST[30] = "215 UNIX Type: L8\r\n";
+            Write_Message(cont->connection_id, message_SYST);
+            break;
+        }
         case TYPE:
-            /* code */ {
-                break;
+        {
+            if (cont->message[5] == 'I' && strlen(cont->message) == 6)
+            {
+                char message_type[30] = "200 Type set to I.\r\n";
+                Write_Message(cont->connection_id, message_type);
             }
+            else
+            {
+                char message_wrong_type[30] = "504 Error TYPE.\r\n";
+                Write_Message(cont->connection_id, message_wrong_type);
+            }
+            break;
+        }
         case PORT:
         {
+            if (strlen(cont->message) <= 5)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
+            }
             long long ip_port = Get_IP_Port(cont->message);
             if (ip_port == -1)
             {
@@ -220,6 +304,13 @@ void Connection_Running(struct Connection *cont)
         }
         case PASV:
         {
+            if (strlen(cont->message) <= 5)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
+            }
             long long ip_port = Get_IP_Port(cont->message);
             if (ip_port == -1)
             {
@@ -260,33 +351,103 @@ void Connection_Running(struct Connection *cont)
             break;
         }
         case MKD:
-            /* code */ {
-                break;
+        {
+            if (strlen(cont->message) <= 4)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
             }
+            if (!Make_Dir(cont))
+            {
+                printf("connection %d: mkd success\n", cont->connection_id);
+                char message_mkd_success[root_maxlen];
+                int beg = 4;
+                char mid1 = cont->dir[strlen(cont->dir) - 1], mid2 = cont->message[4];
+                if (mid1 == '/' && mid2 == '/')
+                    beg++;
+                if (mid1 != '/' && mid2 != '/')
+                    beg--, cont->message[beg] = '/';
+                sprintf(message_mkd_success, "257 \"%s%s\" directory created.\r\n", cont->dir, cont->message + beg);
+                Write_Message(cont->connection_id, message_mkd_success);
+            }
+            else
+            {
+                printf("connection %d: mkd fail\n", cont->connection_id);
+                char message_mkd_fail[30] = "451 Error make dir.\r\n";
+                Write_Message(cont->connection_id, message_mkd_fail);
+            }
+            break;
+        }
         case CWD:
-            /* code */ {
-                break;
+        {
+            if (strlen(cont->message) <= 4)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
             }
+            Command_CWD(cont);
+            break;
+        }
         case PWD:
-            /* code */ {
-                break;
+        {
+            if (strlen(cont->message) <= 4)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
             }
+            printf("connection %d: dir:%s\n", cont->connection_id, cont->dir);
+            char message_PWD[root_maxlen];
+            sprintf(message_PWD, "200 Current Path is %s", cont->dir);
+            Write_Message(cont->connection_id, message_PWD);
+            break;
+        }
         case LIST:
-            /* code */ {
-                break;
-            }
+        {
+            Command_LIST(cont);
+            break;
+        }
         case RMD:
-            /* code */ {
-                break;
+        {
+            if (strlen(cont->message) <= 4)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
             }
+            Command_RMD(cont);
+            break;
+        }
         case RNFR:
-            /* code */ {
-                break;
+        {
+            if (strlen(cont->message) <= 5)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
             }
+            Command_RNFR(cont);
+            break;
+        }
         case RNTO:
-            /* code */ {
-                break;
+        {
+            if (strlen(cont->message) <= 5)
+            {
+                printf("connection %d: parament error\n", cont->connection_id);
+                char message_para_error[30] = "504 Parament error.\r\n";
+                Write_Message(cont->connection_id, message_para_error);
+                return;
             }
+            Command_RNTO(cont);
+            break;
+        }
         default:
         {
             char message_command_invaild[30] = "500 Command unrecognized.\r\n";
