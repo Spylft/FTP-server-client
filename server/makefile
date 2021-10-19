@@ -1,12 +1,16 @@
-main: server.o status.o command.o message_transport.o file_transport.o
-	gcc server.o status.o command.o message_transport.o file_transport.o -o server
-command: command.c command.h
-	gcc command.c -c command.o
-file_transport: file_transport.c file_transport.h
-	gcc file_transport.c -c file_transport.o
-message_transport: message_transport.c message_transport.h
-	gcc message_transport.c -c message_transport.o
-server: server.c 
-	gcc server.c -c server.o
-status: status.c status.h
-	gcc status.c -c status.o
+main: server.o status.o command.o message_transport.o file_transport.o info_handle.o
+	gcc server.o status.o command.o message_transport.o file_transport.o info_handle.o -o server -pthread
+command: command.c command.h command_define.h
+	gcc -c command.c -o command.o command_define.h
+file_transport: file_transport.c file_transport.h command_define.h
+	gcc -c file_transport.c -o file_transport.o
+message_transport: message_transport.c message_transport.h command_define.h
+	gcc -c message_transport.c -o message_transport.o
+server: server.c command_define.h
+	gcc -c server.c -o server.o
+status: status.c status.h command_define.h
+	gcc -c status.c -o status.o
+info_handle:
+	gcc -c info_handle.c -o info_handle.o
+clean:
+	rm *.o

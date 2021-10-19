@@ -1,11 +1,11 @@
 #ifndef _STATUS_H_
 #define _STATUS_H_
 
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include <string.h>
+#include <stdbool.h>
+#include <ctype.h>
 #include <memory.h>
 #include <unistd.h>     /* defines STDIN_FILENO, system calls,etc */
 #include <sys/types.h>  /* system data type definitions */
@@ -14,11 +14,9 @@
 #include <arpa/inet.h>  /* IP address conversion stuff */
 #include <netdb.h>      /* gethostbyname */
 #include <errno.h>
+#include <pthread.h>
 
-#include "command.h"
-#include "file_transport.h"
-#include "message_transport.h"
-#include "info_handle.h"
+#include "command_define.h"
 
 extern int port;
 extern int listenid;
@@ -39,11 +37,12 @@ struct Connection
 struct Connection *New_Connection(int connection_id);
 bool Server_Init();
 int Get_Connection();
-void Run_Connection(void *arg);
+void *Run_Connection(void *arg);
 void Connection_Login(struct Connection *cont);
-void Connection_Runing(struct Connection *cont);
+void Connection_Running(struct Connection *cont);
 bool Set_IP_Port(int ip, int port, int mode, struct Connection *cont);
-void Close_connection(struct Connection *cont);
+void Close_Connection(struct Connection *cont);
+void Close_Connectionid(int id);
 int Get_Random_Port();
 
 #endif

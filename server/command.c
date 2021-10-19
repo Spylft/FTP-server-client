@@ -1,7 +1,7 @@
-#include <string.h>
-
+#include "command_define.h"
 #include "command.h"
 #include "file_transport.h"
+#include "info_handle.h"
 #include "message_transport.h"
 #include "status.h"
 
@@ -64,8 +64,8 @@ int Identify_Commandid(char *command)
     argc：参数个数
     argv：参数字符串
 返回：
-    0：读取失败
-    1：读取成功
+    0：读取成功
+    1：读取失败
 */
 bool Decode_Arg(int argc, char *argv[])
 {
@@ -77,7 +77,7 @@ bool Decode_Arg(int argc, char *argv[])
     {
         port = 21;
         strcpy(root, default_root);
-        return 1;
+        return 0;
     }
     else if (argc == 3)
     {
@@ -85,13 +85,13 @@ bool Decode_Arg(int argc, char *argv[])
         {
             port = atoi(argv[2]);
             strcpy(root, default_root);
-            return 1;
+            return 0;
         }
         else if (!strcmp(a_root, argv[1]))
         {
             port = 21;
             strcpy(root, argv[2]);
-            return 1;
+            return 0;
         }
     }
     else if (argc == 5)
@@ -100,16 +100,16 @@ bool Decode_Arg(int argc, char *argv[])
         {
             port = atoi(argv[2]);
             strcpy(root, argv[4]);
-            return 1;
+            return 0;
         }
         else if (!strcmp(a_root, argv[1]) && !strcmp(a_port, argv[3]))
         {
             port = atoi(argv[4]);
             strcpy(root, argv[2]);
-            return 1;
+            return 0;
         }
     }
-    return 0;
+    return 1;
 }
 
 /*
@@ -121,7 +121,7 @@ bool Decode_Arg(int argc, char *argv[])
  */
 bool Make_Dir(struct Connection *cont)
 {
-    char cmd[root_maxlen];
+    char cmd[root_maxlen * 3 + 30];
     sprintf(cmd, "mkdir -p %s/%s/%s", root, cont->dir, cont->message + 4);
     return system(cmd);
 }
@@ -133,7 +133,7 @@ bool Make_Dir(struct Connection *cont)
 */
 void Command_CWD(struct Connection *cont)
 {
-    char path[root_maxlen];
+    char path[root_maxlen * 3 + 30];
     if (cont->message[4] != '/')
     {
         sprintf(path, "%s/%s/%s", root, cont->dir, cont->message + 4);
@@ -145,14 +145,14 @@ void Command_CWD(struct Connection *cont)
     if ((cont->message[4] == '.' && cont->message[5] == '.' && cont->message[6] == '\0') || (access(path, 0)))
     {
         printf("connection %d: cwd fail\n", cont->connection_id);
-        char message_cwd_fail[30] = "451 Path error.\r\n";
+        char message_cwd_fail[message_maxlen] = "451 Path error.\r\n";
         Write_Message(cont->connection_id, message_cwd_fail);
     }
     else
     {
         strcat(cont->dir, cont->message + 4);
         printf("connection %d: dir:%s\n", cont->connection_id, cont->dir);
-        char message_cwd_success[30] = "250 CWD success.\r\n";
+        char message_cwd_success[message_maxlen] = "250 CWD success.\r\n";
         Write_Message(cont->connection_id, message_cwd_success);
     }
 }
@@ -164,7 +164,7 @@ void Command_CWD(struct Connection *cont)
 */
 void Command_RMD(struct Connection *cont)
 {
-    char path[root_maxlen];
+    char path[root_maxlen * 3 + 30];
     if (cont->message[4] != '/')
     {
         sprintf(path, "%s/%s/%s", root, cont->dir, cont->message + 4);
@@ -176,14 +176,14 @@ void Command_RMD(struct Connection *cont)
     if (access(path, 0))
     {
         printf("connection %d: rmd fail\n", cont->connection_id);
-        char message_cwd_fail[30] = "451 Path error.\r\n";
+        char message_cwd_fail[message_maxlen] = "451 Path error.\r\n";
         Write_Message(cont->connection_id, message_cwd_fail);
     }
     else
     {
         rmdir(path);
         printf("connection %d: rmd:%s\n", cont->connection_id, path);
-        char message_rmd_success[30] = "250 RMD success.\r\n";
+        char message_rmd_success[message_maxlen] = "250 RMD success.\r\n";
         Write_Message(cont->connection_id, message_rmd_success);
     }
 }
@@ -206,11 +206,11 @@ void Command_RNFR(struct Connection *cont)
     if (access(cont->rename_dir, 0))
     {
         printf("connection %d: access path error\n", cont->connection_id);
-        char message_rnfr_error[30] = ".\r\n";
+        char message_rnfr_error[message_maxlen] = "550 File or directory can't access.\r\n";
         Write_Message(cont->connection_id, message_rnfr_error);
         return;
     }
-    char message_rnfr_success[30] = "350 RNFR okay.\r\n";
+    char message_rnfr_success[message_maxlen] = "350 RNFR okay.\r\n";
     Write_Message(cont->connection_id, message_rnfr_success);
 }
 
@@ -224,12 +224,12 @@ void Command_RNTO(struct Connection *cont)
     if (strlen(cont->message) <= 5)
     {
         printf("connection %d: parament error\n", cont->connection_id);
-        char message_para_error[30] = "504 Parament error.\r\n";
+        char message_para_error[message_maxlen] = "504 Parament error.\r\n";
         Write_Message(cont->connection_id, message_para_error);
         return;
     }
 
-    char cmd[root_maxlen * 2], nowpath[root_maxlen];
+    char cmd[root_maxlen * 5 + 30], nowpath[root_maxlen * 3 + 30];
     if (cont->message[5] == '/')
     {
         sprintf(nowpath, "%s/%s", root, cont->message + 5);
@@ -242,13 +242,13 @@ void Command_RNTO(struct Connection *cont)
     if (system(cmd))
     {
         printf("connection %d: rename fail\n", cont->connection_id);
-        char message_rename_fail[30] = "451 Fail to rename.\r\n";
+        char message_rename_fail[message_maxlen] = "451 Fail to rename.\r\n";
         Write_Message(cont->connection_id, message_rename_fail);
     }
     else
     {
         printf("connection %d: rename success\n", cont->connection_id);
-        char message_rename_success[30] = "250 Rename success.\r\n";
+        char message_rename_success[message_maxlen] = "250 Rename success.\r\n";
         Write_Message(cont->connection_id, message_rename_success);
     }
 }

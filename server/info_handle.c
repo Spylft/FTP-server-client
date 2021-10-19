@@ -1,4 +1,9 @@
+#include "command_define.h"
+#include "command.h"
+#include "file_transport.h"
 #include "info_handle.h"
+#include "message_transport.h"
+#include "status.h"
 
 /*
 给定字符串以及当前位置p，求p开始的数字为多少，并且将p最终置该数字后
@@ -12,10 +17,10 @@
 */
 int Get_Digit(char *digit, int len, int *p)
 {
-    if (!is_digit(digit[*p]))
+    if (!isdigit(digit[*p]))
         return -1;
     int ret = 0;
-    while (*p < len && is_digit(digit[*p]))
+    while (*p < len && isdigit(digit[*p]))
     {
         ret = ret * 10 + digit[*p] - '0';
         (*p)++;

@@ -1,9 +1,12 @@
 /*
 
 */
+#include "command_define.h"
+#include "command.h"
+#include "file_transport.h"
+#include "info_handle.h"
 #include "message_transport.h"
 #include "status.h"
-#include "file_transport.h"
 
 /*
 发送message信息至连接connection_id

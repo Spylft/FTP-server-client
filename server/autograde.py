@@ -21,12 +21,14 @@ def build():
     stderr = proc.stderr.readline()
     if not (stdout and stderr):
       break
+    print(type(stdout))
+    print(stdout)
     if stdout and '-Wall' not in stdout:
-      print 'No -Wall argument'
-      print 'Your credit is 0'
+      print('No -Wall argument')
+      print('Your credit is 0')
       exit(0)
     if stderr and credit == 40:
-      print 'There are warnings when compiling your program'
+      print('There are warnings when compiling your program')
       credit -= major
 
 def create_test_file(filename):
@@ -45,64 +47,75 @@ def test(port=21, directory='/tmp'):
   time.sleep(0.1)
   try:
     ftp = FTP()
+    print("connect")
     # connect
     if not ftp.connect('127.0.0.1', port).startswith('220'):
-      print 'You missed response 220'
+      print('You missed response 220')
       credit -= minor
+    print("login")
     # login
     if not ftp.login().startswith('230'):
-      print 'You missed response 230'
+      print('You missed response 230')
       credit -= minor
+    print("SYST")
     # SYST
     if ftp.sendcmd('SYST') != '215 UNIX Type: L8':
-      print 'Bad response for SYST'
+      print('Bad response for SYST')
       credit -= minor
+    print("TYPE")
     # TYPE
     if ftp.sendcmd('TYPE I') != '200 Type set to I.':
-      print 'Bad response for TYPE I'
+      print('Bad response for TYPE I')
       credit -= minor
     # PORT download
+    print("PORT")
     filename = 'test%d.data' % random.randint(100, 200)
     create_test_file(directory + '/' + filename)
     ftp.set_pasv(False)
+    print("RETR")
     if not ftp.retrbinary('RETR %s' % filename, open(filename, 'wb').write).startswith('226'):
-      print 'Bad response for RETR'
+      print('Bad response for RETR')
       credit -= minor
     if not filecmp.cmp(filename, directory + '/' + filename):
-      print 'Something wrong with RETR'
+      print('Something wrong with RETR')
       credit -= major
     os.remove(directory + '/' + filename)
     os.remove(filename)
     # PASV upload
+    print("PASV")
     ftp2 = FTP()
     ftp2.connect('127.0.0.1', port)
     ftp2.login()
     filename = 'test%d.data' % random.randint(100, 200)
     create_test_file(filename)
+    print("STOR")
     if not ftp2.storbinary('STOR %s' % filename, open(filename, 'rb')).startswith('226'):
-      print 'Bad response for STOR'
+      print('Bad response for STOR')
       credit -= minor
     if not filecmp.cmp(filename, directory + '/' + filename):
-      print 'Something wrong with STOR'
+      print('Something wrong with STOR')
       credit -= major
     os.remove(directory + '/' + filename)
     os.remove(filename)
     # QUIT
+    print("QUIT")
     if not ftp.quit().startswith('221'):
-      print 'Bad response for QUIT'
+      print('Bad response for QUIT')
       credit -= minor
     ftp2.quit()
   except Exception as e:
-    print 'Exception occurred:', e
+    print('Exception occurred:', e)
     credit = 0
   server.kill()
 
 build()
 # Test 1
+print(1)
+
 test()
 # Test 2
 port = random.randint(2000, 3000)
-directory = ''.join(random.choice(string.ascii_letters) for x in xrange(10))
+directory = ''.join(random.choice(string.ascii_letters) for x in range(10))
 if os.path.isdir(directory):
   shutil.rmtree(directory)
 os.mkdir(directory)
@@ -111,4 +124,4 @@ shutil.rmtree(directory)
 # Clean
 subprocess.Popen(['make', 'clean'], stdout=subprocess.PIPE)
 # Result
-print 'Your credit is %d' % credit
+print('Your credit is {}'.format(credit))
