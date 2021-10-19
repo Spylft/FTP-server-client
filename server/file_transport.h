@@ -12,10 +12,11 @@ struct File_Transport_Info
 
 struct File_Transport_Info *Get_File_Transport_Info(struct Connection *cont);
 void Command_RETR(struct Connection *cont);
-bool RETR_Check(struct Connection *cont);
+void Command_STOR(struct Connection *cont);
+bool File_Transport_Check(struct Connection *cont);
 bool Connect_PORT(struct Connection *cont);
 bool Connect_PASV(struct Connection *cont);
 void File_Transport(void *info_);
-FILE *Get_File(char *dir);
+void File_Transport_Receive(void *info_);
 
 #endif

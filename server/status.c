@@ -182,9 +182,11 @@ void Connection_Running(struct Connection *cont)
             break;
         }
         case STOR:
-            /* code */ {
-                break;
-            }
+        {
+            printf("connection %d: stor %s\n", cont->connection_id, cont->message + 5);
+            Command_STOR(cont);
+            break;
+        }
         case QUIT:
             /* code */ {
                 break;
