@@ -16,7 +16,7 @@
 int Identify_Commandid(char *command)
 {
     int len = 0;
-    while (command[len] != ' ' || command[len] != '\0')
+    while (command[len] != ' ' && command[len] != '\0')
         len++;
     if (len == 3)
     {

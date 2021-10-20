@@ -204,6 +204,7 @@ bool File_Transport(struct File_Transport_Info *info, FILE *file)
 void *File_Transport_Data(void *info_)
 {
     struct File_Transport_Info *info = (struct File_Transport_Info *)info_;
+    puts(info->file_dir);
     FILE *file = fopen(info->file_dir, "rb");
     if (file == NULL)
     {

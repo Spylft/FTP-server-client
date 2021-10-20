@@ -1,5 +1,6 @@
-main: server.o status.o command.o message_transport.o file_transport.o info_handle.o
+main: server.o status.o command.o message_transport.o file_transport.o info_handle.o client
 	gcc server.o status.o command.o message_transport.o file_transport.o info_handle.o -o server -pthread
+	gcc client.c -o client
 command: command.c command.h command_define.h
 	gcc -c command.c -o command.o command_define.h
 file_transport: file_transport.c file_transport.h command_define.h

@@ -24,7 +24,8 @@ struct Connection *New_Connection(int connection_id)
     ret->connection_data = -1;
     ret->connection_listen = -1;
     ret->is_RNFR = 0;
-    strcpy(ret->dir, root);
+    ret->dir[0] = '\0';
+    // strcpy(ret->dir, root);
     return ret;
 }
 
@@ -74,7 +75,7 @@ int Get_Connection()
     int id;
     while (1)
     {
-        if (id = accept(listenid, NULL, NULL) == -1)
+        if ((id = accept(listenid, NULL, NULL)) == -1)
         {
             printf("Error accept(): %s(%d)\n", strerror(errno), errno);
             continue;
@@ -87,6 +88,7 @@ int Get_Connection()
             break;
         }
     }
+    // printf("%d\n", id);
     return id;
 }
 /*
@@ -172,7 +174,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) <= 5)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command USER Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -186,7 +188,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) <= 5)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command PASS Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -201,7 +203,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) <= 5)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command RETR Parament error.1\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -214,7 +216,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) <= 5)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command STOR Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -227,7 +229,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) > 4)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command QUIT Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -237,6 +239,7 @@ void Connection_Running(struct Connection *cont)
             Close_Connection(cont);
             close(cont->connection_id);
             free(cont);
+            pthread_exit(0);
             break;
         }
         case ABOR:
@@ -244,7 +247,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) > 4)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command ABOR Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -254,6 +257,7 @@ void Connection_Running(struct Connection *cont)
             Close_Connection(cont);
             close(cont->connection_id);
             free(cont);
+            pthread_exit(0);
             break;
         }
         case SYST:
@@ -261,7 +265,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) > 4)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command SYST Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -288,12 +292,12 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) <= 5)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command PORT Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
             long long ip_port = Get_IP_Port(cont->message);
-            if (ip_port == -1)
+            if (ip_port == -1ll)
             {
                 printf("connection %d: parameter error\n", cont->connection_id);
                 char message_parameter_error[message_maxlen] = "504 Command not implemented for that parameter.\r\n";
@@ -311,49 +315,64 @@ void Connection_Running(struct Connection *cont)
         }
         case PASV:
         {
-            if (strlen(cont->message) <= 5)
+            if (strlen(cont->message) > 4)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command PASV Parament error.\r\n";
+                sprintf(message_para_error, "%lu%s\n", strlen(cont->message), cont->message);
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
-            long long ip_port = Get_IP_Port(cont->message);
-            if (ip_port == -1)
-            {
-                printf("connection %d: parameter error\n", cont->connection_id);
-                char message_parameter_error[message_maxlen] = "504 Command not implemented for that parameter.\r\n";
-                Write_Message(cont->connection_id, message_parameter_error);
-                break;
-            }
             Close_Connection(cont);
-            int port = ip_port >> 32;
-            int ip = ip_port ^ (((long long)port) << 32);
-            if (Set_IP_Port(ip, port, PASV_MODE, cont))
+            if (Set_IP_Port(0, 0, PASV_MODE, cont))
             {
                 printf("connection %d: pasv fail\n", cont->connection_id);
                 char message_pasv_fail[message_maxlen] = "425 PASV connection fail.\r\n";
                 Write_Message(cont->connection_id, message_pasv_fail);
                 break;
             }
+            // long long ip_port = Get_IP_Port(cont->message);
+            // if (ip_port == -1ll)
+            // {
+            //     printf("connection %d: parameter error\n", cont->connection_id);
+            //     char message_parameter_error[message_maxlen] = "504 Command not implemented for that parameter.\r\n";
+            //     Write_Message(cont->connection_id, message_parameter_error);
+            //     break;
+            // }
             printf("connection %d: ip:%s port:%d mode:pasv\n", cont->connection_id, cont->ip, cont->port);
-            char message_pasv[message_maxlen] = "227 Entering Passive Mode (";
-            int len = strlen(message_pasv);
-            for (int i = 0; i < 4; i++)
-            {
-                int tmp = (ip >> ((3 - i) * 8)) & 255;
-                Write_Digit(tmp, message_pasv, &len);
-                message_pasv[len++] = ',';
-            }
-            int tmp = port >> 8;
-            Write_Digit(tmp, message_pasv, &len);
-            message_pasv[len++] = ',';
-            tmp = port & 255;
-            Write_Digit(tmp, message_pasv, &len);
-            message_pasv[len++] = ')';
-            message_pasv[len++] = '.';
-            message_pasv[len++] = '\r';
-            message_pasv[len++] = '\n';
+            char message_pasv[message_maxlen]; // = "227 Entering Passive Mode (";
+            sprintf(message_pasv, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d).\r\n", 127, 0, 0, 1, ((cont->port) >> 8) & 255, (cont->port) & 255);
+            // int len = strlen(message_pasv);
+            // Write_Digit(127, message_pasv, &len); // IP：127.0.0.1
+            // message_pasv[len++] = ',';
+            // Write_Digit(0, message_pasv, &len);
+            // message_pasv[len++] = ',';
+            // Write_Digit(0, message_pasv, &len);
+            // message_pasv[len++] = ',';
+            // Write_Digit(1, message_pasv, &len);
+            // message_pasv[len++] = ',';
+            // // for (int i = 0; i < 4; i++)
+            // // {
+            // //     int tmp = (ip >> ((3 - i) * 8)) & 255;
+            // //     Write_Digit(tmp, message_pasv, &len);
+            // //     message_pasv[len++] = ',';
+            // // }
+            // int tmp = ((cont->port) >> 8) & 255;
+            // Write_Digit(tmp, message_pasv, &len);
+            // message_pasv[len++] = ',';
+            // tmp = port & 255;
+            // Write_Digit(tmp, message_pasv, &len);
+            // message_pasv[len++] = ')';
+            // message_pasv[len++] = '.';
+            // message_pasv[len++] = '\r';
+            // message_pasv[len++] = '\n';
+            // if (len > message_pasv)
+            //     while (1)
+            //         ;
+            // message_pasv[len++] = '\0';
+            // while (1)
+            //     ;
+            // sprintf(message_pasv, "sadsaf.\r\n");
             Write_Message(cont->connection_id, message_pasv);
             break;
         }
@@ -362,7 +381,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) <= 4)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command MKD Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -392,7 +411,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) <= 4)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command CWD Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -404,7 +423,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) <= 4)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command PWD Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -424,7 +443,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) <= 4)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command RMD Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -436,7 +455,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) <= 5)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command RNFR Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -448,7 +467,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) <= 5)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Parament error.\r\n";
+                char message_para_error[message_maxlen] = "504 Command RNTO Parament error.\r\n";
                 Write_Message(cont->connection_id, message_para_error);
                 return;
             }
@@ -489,15 +508,11 @@ int Get_Random_Port()
 bool Set_IP_Port(int ip, int port, int mode, struct Connection *cont)
 {
     Close_Connection(cont);
-    int len = 0;
-    for (int i = 0; i < 4; i++)
-        Write_Digit((ip >> ((3 - i) * 8)) & 255, cont->ip, &len), cont->ip[len++] = '.';
-    cont->ip[len - 1] = '\0';
-    cont->port = port;
-    cont->connection_mode = mode;
     if (mode == PASV_MODE)
     {
         cont->port = Get_Random_Port();
+        cont->connection_mode = mode;
+        sprintf(cont->ip, "%s", "127.0.0.1");
         struct sockaddr_in Address;
         if ((cont->connection_listen = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
         {
@@ -508,6 +523,12 @@ bool Set_IP_Port(int ip, int port, int mode, struct Connection *cont)
         memset(&Address, 0, sizeof(Address));
         Address.sin_family = AF_INET;
         Address.sin_port = htons(cont->port);
+
+        if (inet_pton(AF_INET, cont->ip, &Address.sin_addr) <= 0)
+        {
+            printf("Error inetpton(): %s(%d)\n", strerror(errno), errno);
+            return 1;
+        }
 
         if (bind(cont->connection_listen, (struct sockaddr *)&Address, sizeof(Address)))
         {
@@ -520,6 +541,15 @@ bool Set_IP_Port(int ip, int port, int mode, struct Connection *cont)
             printf("Error listen(): %s(%d)\n", strerror(errno), errno);
             return 1;
         }
+    }
+    else
+    {
+        int len = 0;
+        for (int i = 0; i < 4; i++)
+            Write_Digit((ip >> ((3 - i) * 8)) & 255, cont->ip, &len), cont->ip[len++] = '.';
+        cont->ip[len - 1] = '\0';
+        cont->port = port;
+        cont->connection_mode = mode;
     }
     return 0;
 }

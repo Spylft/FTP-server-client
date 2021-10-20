@@ -48,6 +48,7 @@ long long Get_IP_Port(char *ip_port)
             return -1;
         ret |= ((long long)tmp) << (8 * (3 - i));
         beg++;
+        i++;
     }
     int tmp = Get_Digit(ip_port, len, &beg);
     if (ip_port[beg] != ',')
@@ -78,5 +79,5 @@ void Write_Digit(int digit, char *str, int *len)
     if (sz == 0)
         stk[sz++] = 0;
     while (sz--)
-        str[*len] = stk[sz], (*len)++;
+        str[*len] = stk[sz] + '0', (*len)++;
 }

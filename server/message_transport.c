@@ -19,11 +19,13 @@
 */
 bool Write_Message(int connection_id, char *message)
 {
+    printf("Write %s\n", message);
     int len = strlen(message);
     int p = 0;
     while (p < len)
     {
-        int n = write(connection_id, message + p, len + 1 - p);
+        int n = write(connection_id, message + p, len - p);
+        // printf("%d %d %d\n", p, n, len);
         if (n < 0)
         {
             printf("Error write(): %s(%d)\n", strerror(errno), errno);
@@ -32,6 +34,8 @@ bool Write_Message(int connection_id, char *message)
         else
         {
             p += n;
+            if (message[p - 1] == '\n' || message[p - 1] == '\r')
+                break;
         }
     }
     return 0;
@@ -46,10 +50,11 @@ bool Write_Message(int connection_id, char *message)
 */
 bool Read_Message(struct Connection *cont)
 {
+    puts("Begin read");
     int p = 0;
     while (1)
     {
-        int n = read(cont->connection_id, cont->message + p, socket_maxlen - 1 - p);
+        int n = read(cont->connection_id, cont->message + p, socket_maxlen - p);
         if (n < 0)
         {
             printf("Error read(): %s(%d)\n", strerror(errno), errno);
@@ -62,12 +67,13 @@ bool Read_Message(struct Connection *cont)
         else
         {
             p += n;
-            if (cont->message[p - 1] == '\n')
+            if (cont->message[p - 1] == '\n' || cont->message[p - 1] == '\r')
                 break;
         }
     }
     while (cont->message[p - 1] == '\r' || cont->message[p - 1] == '\n')
         p--;
     cont->message[p] = '\0';
+    printf("Read %s %d\n", cont->message, p);
     return 0;
 }
