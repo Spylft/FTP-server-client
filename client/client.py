@@ -45,8 +45,9 @@ class MyClient:
         '''
         初始化客户端信息
         '''
-        hostname = socket.gethostname()
-        self.client_ip = socket.gethostbyname(hostname)
+        hostsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        hostsocket.connect(('8.8.8.8', 80))
+        self.client_ip = hostsocket.getsockname()[0]
         pass
 
     def Init_Window(self):
@@ -134,22 +135,30 @@ class MyClient:
             self.connection_listen.close()
             self.connection_listen = None
         if self.transport_mode == 0:  # PORT
-            port = self.Get_Random_Port()
-            server_ip_re = re.match(
-                r'([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', self.server_ip)
-            message_port = 'PORT ('+server_ip_re[1]+','+server_ip_re[2]+','+server_ip_re[3] + \
-                ','+server_ip_re[4]+',' + \
-                str(port/256)+','+str(port % 256)+')\r\n'
+            port = int(self.MainWindow.Input_ModePort.toPlainText())
+            self.connection_listen = socket.socket()
+            self.connection_listen.bind((self.client_ip, port))
+            self.connection_listen.listen(10)
+            client_ip_re = re.match(
+                r'([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', self.client_ip)
+            message_port = 'PORT '+client_ip_re[1]+','+client_ip_re[2]+','+client_ip_re[3] + \
+                ','+client_ip_re[4]+',' + \
+                str(port//256)+','+str(port % 256)+'\r\n'
+            print(port, message_port)
             self.connection_id.send(str.encode(message_port))
             print(self.connection_id)
-            message = self.connection_id.recv(
-                socket_maxlen).decode('UTF-8', 'strict')
-            if self.Check_Invalid(message):
-                self.Warning_Box('Port command error', message)
-                return 1
-            self.connection_listen = socket.socket()
-            self.connection_listen.bind(self.client_ip, port)
-            self.connection_listen.listen(10)
+            try:
+                message = self.connection_id.recv(
+                    socket_maxlen).decode('UTF-8', 'strict')
+                if self.Check_Invalid(message):
+                    self.Warning_Box('Port command error', message)
+                    return 1
+                print(message)
+            except:
+                print("no message")
+                pass
+            print("end recv")
+            print("begin listen")
         else:
             message_pasv = "PASV\r\n"
             self.connection_id.send(str.encode(message_pasv))
@@ -267,6 +276,7 @@ class MyClient:
         # LIST
         if self.Connect_Mode():
             return
+        print("connect")
         message_list = 'LIST\r\n'
         self.connection_id.send(str.encode(message_list))
         if self.Connect():
@@ -366,9 +376,13 @@ class MyClient:
         except:
             self.Warning_Box('Download error', 'Can\'t open file.')
             return
+        print("begin download")
         while(1):
+            print("download")
             try:
+                print("download begin1")
                 data_receive = self.connection_data.recv(socket_maxlen)
+                print("download end1")
             except:
                 self.Warning_Box('Download error', 'Download failed.')
                 self.download_model.setItem(num, 1, QStandardItem("Failed"))
@@ -379,6 +393,7 @@ class MyClient:
                 self.MainWindow.Show_Download.setModel(self.download_model)
                 return
             file.write(data_receive)
+            print(len(data_receive))
 
     def Download(self):
         '''
@@ -388,10 +403,11 @@ class MyClient:
         server_file_path = self.MainWindow.Input_Path.toPlainText()
         if self.Connect_Mode():
             return
-        message_retr = 'RETR'+client_file_path+'\r\n'
+        message_retr = 'RETR'+server_file_path+'\r\n'
         self.connection_id.send(str.encode(message_retr))
         message = self.connection_id.recv(
             socket_maxlen).decode('UTF-8', 'strict')
+        print(message)
         if self.Check_Invalid(message):
             self.Warning_Box('Download error', message)
             return
