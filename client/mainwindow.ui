@@ -45,6 +45,9 @@
      <height>91</height>
     </rect>
    </property>
+   <attribute name="horizontalHeaderStretchLastSection">
+    <bool>true</bool>
+   </attribute>
   </widget>
   <widget class="QLabel" name="label_2">
    <property name="geometry">
@@ -68,6 +71,9 @@
      <height>91</height>
     </rect>
    </property>
+   <attribute name="horizontalHeaderStretchLastSection">
+    <bool>true</bool>
+   </attribute>
   </widget>
   <widget class="QLabel" name="label_3">
    <property name="geometry">
@@ -254,6 +260,12 @@
      <height>171</height>
     </rect>
    </property>
+   <attribute name="horizontalHeaderStretchLastSection">
+    <bool>true</bool>
+   </attribute>
+   <attribute name="verticalHeaderStretchLastSection">
+    <bool>false</bool>
+   </attribute>
   </widget>
   <widget class="QLabel" name="label_8">
    <property name="geometry">
@@ -292,19 +304,6 @@
    </property>
    <property name="text">
     <string>ChangeDir</string>
-   </property>
-  </widget>
-  <widget class="QPushButton" name="Button_Backdir">
-   <property name="geometry">
-    <rect>
-     <x>580</x>
-     <y>150</y>
-     <width>93</width>
-     <height>28</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>BackDir</string>
    </property>
   </widget>
   <widget class="QPushButton" name="Button_Portmode">
