@@ -429,7 +429,7 @@ void Connection_Running(struct Connection *cont)
             }
             printf("connection %d: dir:%s\n", cont->connection_id, cont->dir);
             char message_PWD[root_maxlen + 30];
-            sprintf(message_PWD, "200 Current Path is %s", cont->dir);
+            sprintf(message_PWD, "257 Current Path is \"%s\"", cont->dir);
             Write_Message(cont->connection_id, message_PWD);
             break;
         }

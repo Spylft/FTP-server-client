@@ -437,6 +437,19 @@
     </rect>
    </property>
   </widget>
+  <widget class="QPushButton" name="Button_Removedir">
+   <property name="geometry">
+    <rect>
+     <x>580</x>
+     <y>150</y>
+     <width>93</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>RemoveDir</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections/>

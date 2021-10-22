@@ -150,7 +150,10 @@ void Command_CWD(struct Connection *cont)
     }
     else
     {
-        strcat(cont->dir, cont->message + 4);
+        if (cont->message[4] != '/')
+            strcat(cont->dir, cont->message + 4);
+        else
+            strcpy(cont->dir, cont->message + 4);
         printf("connection %d: dir:%s\n", cont->connection_id, cont->dir);
         char message_cwd_success[message_maxlen] = "250 CWD success.\r\n";
         Write_Message(cont->connection_id, message_cwd_success);

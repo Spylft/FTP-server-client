@@ -53,9 +53,6 @@ class MyClient:
         '''
         初始化图形化窗口内内容
         '''
-        self.MainWindow.Show_File.setModel(self.file_model)
-        self.MainWindow.Show_Download.setModel(self.download_model)
-        self.MainWindow.Show_Upload.setModel(self.upload_model)
         self.file_model.setHorizontalHeaderItem(
             0, QStandardItem('name'))
         self.file_model.setHorizontalHeaderItem(
@@ -72,6 +69,9 @@ class MyClient:
             0, QStandardItem('name'))
         self.upload_model.setHorizontalHeaderItem(
             1, QStandardItem('status'))
+        self.MainWindow.Show_File.setModel(self.file_model)
+        self.MainWindow.Show_Download.setModel(self.download_model)
+        self.MainWindow.Show_Upload.setModel(self.upload_model)
 
     def Connect_Signal_Slots(self):
         '''
@@ -85,6 +85,7 @@ class MyClient:
         self.MainWindow.Button_Upload.clicked.connect(self.Upload)
         self.MainWindow.Button_Makedir.clicked.connect(self.Makedir)
         self.MainWindow.Button_Changedir.clicked.connect(self.Changedir)
+        self.MainWindow.Button_Removedir.clicked.connect(self.Removedir)
         self.MainWindow.Button_Portmode.clicked.connect(self.Portmode)
         self.MainWindow.Button_Pasvmode.clicked.connect(self.Pasvmode)
 
@@ -109,8 +110,8 @@ class MyClient:
         if message[0:2].isdigit() and message[3] == ' ':
             num = int(message[0:2])
             if num >= 200 and num <= 400:
-                return True
-        return False
+                return 1
+        return 0
 
     def Get_Random_Port(self):
         '''
@@ -135,16 +136,17 @@ class MyClient:
         if self.transport_mode == 0:  # PORT
             port = self.Get_Random_Port()
             server_ip_re = re.match(
-                r'([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1-3})\.([0-9]{1,3})', self.server_ip)
+                r'([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', self.server_ip)
             message_port = 'PORT ('+server_ip_re[1]+','+server_ip_re[2]+','+server_ip_re[3] + \
                 ','+server_ip_re[4]+',' + \
                 str(port/256)+','+str(port % 256)+')\r\n'
             self.connection_id.send(str.encode(message_port))
+            print(self.connection_id)
             message = self.connection_id.recv(
                 socket_maxlen).decode('UTF-8', 'strict')
             if self.Check_Invalid(message):
                 self.Warning_Box('Port command error', message)
-                return False
+                return 1
             self.connection_listen = socket.socket()
             self.connection_listen.bind(self.client_ip, port)
             self.connection_listen.listen(10)
@@ -155,12 +157,12 @@ class MyClient:
                 socket_maxlen).decode('UTF-8', 'strict')
             if self.Check_Invalid(message):
                 self.Warning_Box('PASV command error', message)
-                return False
+                return 1
             server_ip_port_re = re.match(
-                r'.*\(([0-9]{1,3}),([0-9]{1,3}),([0-9]{1-3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3})\).*', self.server_ip)
+                r'.*[(]([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3})[)].*', message)
             self.server_port_data = int(
                 server_ip_port_re[5])*256+int(server_ip_port_re[6])
-        return True
+        return 0
 
     def Connect(self):
         '''
@@ -170,19 +172,19 @@ class MyClient:
         '''
         if self.transport_mode == 0:  # PORT
             try:
-                self.connection_data = socket.socket()
-                self.connection_data.connect(
-                    self.server_ip, self.server_port_data)
-            except:
-                self.Warning_Box('Connect error', 'Data connection failed')
-                return False
-        else:  # PASV
-            try:
                 self.connection_data, ip_port = self.connection_listen.accept()
             except:
                 self.Warning_Box('Connect error', 'Can\'t listen connection')
-                return False
-        return True
+                return 1
+        else:  # PASV
+            try:
+                self.connection_data = socket.socket()
+                self.connection_data.connect(
+                    (self.server_ip, self.server_port_data))
+            except:
+                self.Warning_Box('Connect error', 'Data connection failed')
+                return 1
+        return 0
 
     def Login(self):
         '''
@@ -190,7 +192,8 @@ class MyClient:
         '''
         try:
             self.server_ip = self.MainWindow.Input_IP.toPlainText()
-            self.server_port = int(self.MainWindow.Input_Port.toPlainText())
+            self.server_port_connection = int(
+                self.MainWindow.Input_Port.toPlainText())
             username = self.MainWindow.Input_Username.toPlainText()
             password = self.MainWindow.Input_Password.toPlainText()
         except:
@@ -199,7 +202,7 @@ class MyClient:
 
         try:
             self.connection_id.connect(
-                self.server_ip, self.server_port_connection)
+                (self.server_ip, self.server_port_connection))
         except:
             self.Warning_Box('Login error', 'Can\'t connect.')
             return
@@ -266,12 +269,12 @@ class MyClient:
             return
         message_list = 'LIST\r\n'
         self.connection_id.send(str.encode(message_list))
+        if self.Connect():
+            return
         message = self.connection_id.recv(
             socket_maxlen).decode('UTF-8', 'strict')
         if self.Check_Invalid(message):
             self.Warning_Box('Refresh error', message)
-            return
-        if self.Connect():
             return
         list_data = self.connection_data.recv(
             socket_maxlen).decode('UTF-8', 'strict')
@@ -291,9 +294,16 @@ class MyClient:
             2, QStandardItem('size'))
         self.file_model.setHorizontalHeaderItem(
             3, QStandardItem('last edit time'))
+        print(list_data)
+        print(data_list)
+        print(len(data_list))
         for i in range(len(data_list)):
             data = data_list[i]
-            data_info = data.split(' ')
+            data_info = data.split()
+            if len(data_info) != 9:
+                continue
+            # print(data_info)
+            # print(len(data_info))
             model_insert = []
             model_insert.append(QStandardItem(data_info[8]))
             if data_info[0][0] == '-':
@@ -304,6 +314,7 @@ class MyClient:
             model_insert.append(QStandardItem(
                 data_info[5]+' '+data_info[6]+' '+data_info[7]))
             self.file_model.insertRow(self.file_model.rowCount(), model_insert)
+        self.MainWindow.Show_File.setModel(self.file_model)
 
         # PWD
         message_pwd = 'PWD\r\n'
@@ -313,7 +324,8 @@ class MyClient:
         if self.Check_Invalid(message):
             self.Warning_Box('Refresh error', message)
             return
-        current_dir = message.split(' ')[-1]
+        current_dir = message.split()[-1]
+        current_dir = current_dir[1:-1]
         self.MainWindow.Input_Path.setPlainText(current_dir)
 
         pass
@@ -360,9 +372,11 @@ class MyClient:
             except:
                 self.Warning_Box('Download error', 'Download failed.')
                 self.download_model.setItem(num, 1, QStandardItem("Failed"))
+                self.MainWindow.Show_Download.setModel(self.download_model)
                 return
             if data_receive == None or len(data_receive) == 0:
                 self.download_model.setItem(num, 1, QStandardItem("Completed"))
+                self.MainWindow.Show_Download.setModel(self.download_model)
                 return
             file.write(data_receive)
 
@@ -385,12 +399,12 @@ class MyClient:
             return
         file_info = client_file_path.split('/')
         download_file_info = []
-        download_file_info.append(file_info[-1])
-        download_file_info.append('downloading')
+        download_file_info.append(QStandardItem(file_info[-1]))
+        download_file_info.append(QStandardItem('downloading'))
         self.download_model.insertRow(
             self.download_model.rowCount(), download_file_info)
         _thread.start_new_thread(
-            self.Download_File, self.download_model.rowCount(), client_file_path)
+            self.Download_File, (self.download_model.rowCount(), client_file_path))
         pass
 
     def Upload_File(self, num, client_file_path):
@@ -410,15 +424,18 @@ class MyClient:
             except:
                 self.Warning_Box('Upload error', 'Read file failed.')
                 self.upload_model.setItem(num, 1, QStandardItem("Failed"))
+                self.MainWindow.Show_Upload.setModel(self.upload_model)
                 return
             if data_send == None or len(data_send) == 0:
                 self.upload_model.setItem(num, 1, QStandardItem("Completed"))
+                self.MainWindow.Show_Upload.setModel(self.upload_model)
                 return
             try:
-                self.connection_data.send(data_send)
+                self.connection_data.send(str.encode(data_send))
             except:
                 self.Warning_Box('Upload error', 'File transport failed.')
                 self.upload_model.setItem(num, 1, QStandardItem("Failed"))
+                self.MainWindow.Show_Upload.setModel(self.upload_model)
                 return
 
     def Upload(self):
@@ -440,12 +457,12 @@ class MyClient:
             return
         file_info = client_file_path.split('/')
         upload_file_info = []
-        upload_file_info.append(file_info[-1])
-        upload_file_info.append('uploading')
+        upload_file_info.append(QStandardItem(file_info[-1]))
+        upload_file_info.append(QStandardItem('uploading'))
         self.upload_model.insertRow(
             self.upload_model.rowCount(), upload_file_info)
         _thread.start_new_thread(
-            self.Upload_File, self.upload_model.rowCount(), client_file_path)
+            self.Upload_File, (self.upload_model.rowCount(), client_file_path))
         pass
 
     def Makedir(self):
@@ -454,7 +471,7 @@ class MyClient:
         '''
         path = self.MainWindow.Input_Path.toPlainText()
         message_mkd = 'MKD '+path+'\r\n'
-        self.connection_id.send(message_mkd)
+        self.connection_id.send(str.encode(message_mkd))
         message = self.connection_id.recv(
             socket_maxlen).decode('UTF-8', 'strict')
         if self.Check_Invalid(message):
@@ -468,13 +485,27 @@ class MyClient:
         '''
         path = self.MainWindow.Input_Path.toPlainText()
         message_cwd = 'CWD '+path+'\r\n'
-        self.connection_id.send(message_cwd)
+        self.connection_id.send(str.encode(message_cwd))
         message = self.connection_id.recv(
             socket_maxlen).decode('UTF-8', 'strict')
         if self.Check_Invalid(message):
             self.Warning_Box('Changedir error', message)
             return
+        self.Refresh()
         pass
+
+    def Removedir(self):
+        '''
+        删除目录，即进行RMD命令
+        '''
+        path = self.MainWindow.Input_Path.toPlainText()
+        message_cwd = 'RMD '+path+'\r\n'
+        self.connection_id.send(str.encode(message_cwd))
+        message = self.connection_id.recv(
+            socket_maxlen).decode('UTF-8', 'strict')
+        if self.Check_Invalid(message):
+            self.Warning_Box('Removedir error', message)
+            return
 
     def Portmode(self):
         '''

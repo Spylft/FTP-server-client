@@ -152,6 +152,8 @@ void Command_LIST(struct Connection *cont)
         Write_Message(cont->connection_id, message_trans_fail);
         return;
     }
+    char message_list[message_maxlen] = "226 LIST success.\r\n";
+    Write_Message(cont->connection_id, message_list);
     Close_Connectionid(cont->connection_listen);
     cont->connection_mode = NONE_MODE;
     pthread_t data_transport_thread;
