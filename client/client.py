@@ -53,6 +53,7 @@ class MyClient:
         hostsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         hostsocket.connect(('8.8.8.8', 80))
         self.client_ip = hostsocket.getsockname()[0]
+        print(self.client_ip)
         pass
 
     def Init_Window(self):
@@ -186,6 +187,11 @@ class MyClient:
             0成功 1失败
         '''
         print("begin connect")
+        message = self.connection_id.recv(
+            socket_maxlen).decode('UTF-8', 'strict')
+        if self.Check_Invalid(message):
+            self.Warning_Box('Port command error', message)
+            return 1
         if self.transport_mode == 0:  # PORT
             try:
                 self.connection_data, ip_port = self.connection_listen.accept()
@@ -280,10 +286,13 @@ class MyClient:
             return
 
         self.connection_id.close()
+        self.connection_id = None
         if self.connection_listen != None:
             self.connection_listen.close()
+            self.connection_listen = None
         if self.connection_data != None:
             self.connection_data.close()
+            self.connection_data = None
         self.MainWindow.Input_IP.setReadOnly(False)
         self.MainWindow.Input_Port.setReadOnly(False)
         self.MainWindow.Input_Username.setReadOnly(False)
@@ -304,15 +313,17 @@ class MyClient:
         self.connection_id.send(str.encode(message_list))
         if self.Connect():
             return
-        message = self.connection_id.recv(
-            socket_maxlen).decode('UTF-8', 'strict')
-        if self.Check_Invalid(message):
-            self.Warning_Box('Refresh error', message)
-            return
+        # message = self.connection_id.recv(
+        #     socket_maxlen).decode('UTF-8', 'strict')
+        # if self.Check_Invalid(message):
+        #     self.Warning_Box('Refresh error', message)
+        #     return
         list_data = self.connection_data.recv(
             socket_maxlen).decode('UTF-8', 'strict')
+        print(len(list_data))
         message = self.connection_id.recv(
             socket_maxlen).decode('UTF-8', 'strict')
+        print(message)
         if self.Check_Invalid(message):
             self.Warning_Box('Refresh error', message)
             return
@@ -477,12 +488,12 @@ class MyClient:
         print("message_retr send")
         if self.Connect():
             return
-        message = self.connection_id.recv(
-            socket_maxlen).decode('UTF-8', 'strict')
-        print("message download", message)
-        if self.Check_Invalid(message):
-            self.Warning_Box('Download error', message)
-            return
+        # message = self.connection_id.recv(
+        #     socket_maxlen).decode('UTF-8', 'strict')
+        # print("message download", message)
+        # if self.Check_Invalid(message):
+        #     self.Warning_Box('Download error', message)
+        #     return
         file_info = client_file_path.split('/')
         download_file_info = []
         download_file_info.append(QStandardItem(file_info[-1]))
@@ -542,6 +553,7 @@ class MyClient:
                 self.upload_status[num] = 'complete'
                 self.Refresh_Upload_View()
                 self.connection_data.close()
+                self.connection_data = None
                 message = self.connection_id.recv(
                     socket_maxlen).decode('UTF-8', 'strict')
                 print("message", message)
@@ -591,13 +603,13 @@ class MyClient:
         self.connection_id.send(str.encode(message_stor))
         if self.Connect():
             return
-        print("message_stor sent")
-        message = self.connection_id.recv(
-            socket_maxlen).decode('UTF-8', 'strict')
-        print("message receive", message)
-        if self.Check_Invalid(message):
-            self.Warning_Box('Upload error', message)
-            return
+        # print("message_stor sent")
+        # message = self.connection_id.recv(
+        #     socket_maxlen).decode('UTF-8', 'strict')
+        # print("message receive", message)
+        # if self.Check_Invalid(message):
+        #     self.Warning_Box('Upload error', message)
+        #     return
         file_info = server_file_path.split('/')
         upload_file_info = []
         upload_file_info.append(QStandardItem(file_info[-1]))
