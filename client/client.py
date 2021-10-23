@@ -17,6 +17,7 @@ socket_maxlen = 8192
 
 
 class MyClient:
+    get_logined = False
     connection_data = None
     connection_id = socket.socket()
     connection_listen = None
@@ -30,6 +31,10 @@ class MyClient:
     file_model = QStandardItemModel()
     download_model = QStandardItemModel()
     upload_model = QStandardItemModel()
+    download_list = []
+    download_status = []
+    upload_list = []
+    upload_status = []
 
     def __init__(self) -> None:
         '''
@@ -167,6 +172,7 @@ class MyClient:
             if self.Check_Invalid(message):
                 self.Warning_Box('PASV command error', message)
                 return 1
+            print(message)
             server_ip_port_re = re.match(
                 r'.*[(]([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3})[)].*', message)
             self.server_port_data = int(
@@ -179,6 +185,7 @@ class MyClient:
         返回：
             0成功 1失败
         '''
+        print("begin connect")
         if self.transport_mode == 0:  # PORT
             try:
                 self.connection_data, ip_port = self.connection_listen.accept()
@@ -188,8 +195,10 @@ class MyClient:
         else:  # PASV
             try:
                 self.connection_data = socket.socket()
+                print(self.server_ip, self.server_port_data)
                 self.connection_data.connect(
                     (self.server_ip, self.server_port_data))
+                print("connected", self.connection_data)
             except:
                 self.Warning_Box('Connect error', 'Data connection failed')
                 return 1
@@ -199,6 +208,9 @@ class MyClient:
         '''
         登陆操作，即进行USER与PASS命令
         '''
+        if self.get_logined:
+            self.Warning_Box('Login error', 'already logined.')
+            return
         try:
             self.server_ip = self.MainWindow.Input_IP.toPlainText()
             self.server_port_connection = int(
@@ -210,9 +222,13 @@ class MyClient:
             return
 
         try:
+            self.connection_id = socket.socket()
             self.connection_id.connect(
                 (self.server_ip, self.server_port_connection))
         except:
+            print("connect error", self.server_ip, self.server_port_connection)
+            print(self.server_ip)
+            print(self.server_port_connection)
             self.Warning_Box('Login error', 'Can\'t connect.')
             return
         message = self.connection_id.recv(
@@ -244,12 +260,17 @@ class MyClient:
 
         self.Refresh()
 
+        self.get_logined = True
+
         pass
 
     def Logout(self):
         '''
         登出操作，即进行QUIT命令
         '''
+        if not self.get_logined:
+            self.Warning_Box('Logout error', 'hav\'t login')
+            return
         message_quit = 'QUIT\r\n'
         self.connection_id.send(str.encode(message_quit))
         message = self.connection_id.recv(
@@ -267,6 +288,8 @@ class MyClient:
         self.MainWindow.Input_Port.setReadOnly(False)
         self.MainWindow.Input_Username.setReadOnly(False)
         self.MainWindow.Input_Password.setReadOnly(False)
+
+        self.get_logined = False
         pass
 
     def Refresh(self):
@@ -293,6 +316,7 @@ class MyClient:
         if self.Check_Invalid(message):
             self.Warning_Box('Refresh error', message)
             return
+        print(list_data)
         data_list = list_data.split('\n')
         self.MainWindow.Show_File.setModel(self.file_model)
         self.file_model = QStandardItemModel()
@@ -304,9 +328,9 @@ class MyClient:
             2, QStandardItem('size'))
         self.file_model.setHorizontalHeaderItem(
             3, QStandardItem('last edit time'))
-        print(list_data)
-        print(data_list)
-        print(len(data_list))
+        # print(list_data)
+        # print(data_list)
+        # print(len(data_list))
         for i in range(len(data_list)):
             data = data_list[i]
             data_info = data.split()
@@ -365,6 +389,23 @@ class MyClient:
 
         pass
 
+    def Refresh_Download_View(self):
+        '''
+        刷新下载文件列表
+        '''
+        self.download_model = QStandardItemModel()
+        self.download_model.setHorizontalHeaderItem(
+            0, QStandardItem('name'))
+        self.download_model.setHorizontalHeaderItem(
+            1, QStandardItem('status'))
+        self.download_model.setRowCount(len(self.download_list))
+        for i in range(len(self.download_list)):
+            self.download_model.setItem(
+                i, 0, QStandardItem(self.download_list[i]))
+            self.download_model.setItem(
+                i, 1, QStandardItem(self.download_status[i]))
+        self.MainWindow.Show_Download.setModel(self.download_model)
+
     def Download_File(self, num, client_file_path):
         '''
         下载文件
@@ -375,25 +416,52 @@ class MyClient:
             file = open(client_file_path, 'wb+')
         except:
             self.Warning_Box('Download error', 'Can\'t open file.')
+            self.download_status[num] = 'failed'
+            self.Refresh_Download_View()
             return
         print("begin download")
         while(1):
-            print("download")
+            # print("download")
             try:
-                print("download begin1")
+                # print("download begin1")
                 data_receive = self.connection_data.recv(socket_maxlen)
-                print("download end1")
+                # print("download end1")
             except:
                 self.Warning_Box('Download error', 'Download failed.')
-                self.download_model.setItem(num, 1, QStandardItem("Failed"))
-                self.MainWindow.Show_Download.setModel(self.download_model)
+                self.download_status[num] = 'failed'
+                self.Refresh_Download_View()
+                message = self.connection_id.recv(
+                    socket_maxlen).decode('UTF-8', 'strict')
+                print("message download", message)
+                if self.Check_Invalid(message):
+                    self.Warning_Box('Download error', message)
+                    return
+                # self.download_model.setItem(num, 1, QStandardItem("Failed"))
+                # self.MainWindow.Show_Download.setModel(self.download_model)
                 return
             if data_receive == None or len(data_receive) == 0:
-                self.download_model.setItem(num, 1, QStandardItem("Completed"))
-                self.MainWindow.Show_Download.setModel(self.download_model)
+                self.download_status[num] = 'complete'
+                self.Refresh_Download_View()
+                message = self.connection_id.recv(
+                    socket_maxlen).decode('UTF-8', 'strict')
+                print("message download", message)
+                if self.Check_Invalid(message):
+                    self.Warning_Box('Download error', message)
+                    return
+                # print("before setitem")
+                # self.download_model.setItem(num, 1, QStandardItem("Completed"))
+                # print("before setmodel")
+                # self.MainWindow.Show_Download.setModel(self.download_model)
+                # print("end setmodel")
                 return
             file.write(data_receive)
-            print(len(data_receive))
+            # print(len(data_receive))
+        message = self.connection_id.recv(
+            socket_maxlen).decode('UTF-8', 'strict')
+        print("message download", message)
+        if self.Check_Invalid(message):
+            self.Warning_Box('Download error', message)
+            return
 
     def Download(self):
         '''
@@ -403,25 +471,46 @@ class MyClient:
         server_file_path = self.MainWindow.Input_Path.toPlainText()
         if self.Connect_Mode():
             return
-        message_retr = 'RETR'+server_file_path+'\r\n'
+        message_retr = 'RETR '+server_file_path+'\r\n'
+        print("message_retr ", message_retr)
         self.connection_id.send(str.encode(message_retr))
+        print("message_retr send")
+        if self.Connect():
+            return
         message = self.connection_id.recv(
             socket_maxlen).decode('UTF-8', 'strict')
-        print(message)
+        print("message download", message)
         if self.Check_Invalid(message):
             self.Warning_Box('Download error', message)
-            return
-        if self.Connect():
             return
         file_info = client_file_path.split('/')
         download_file_info = []
         download_file_info.append(QStandardItem(file_info[-1]))
         download_file_info.append(QStandardItem('downloading'))
+        self.download_list.append(file_info[-1])
+        self.download_status.append('downloading')
         self.download_model.insertRow(
             self.download_model.rowCount(), download_file_info)
         _thread.start_new_thread(
-            self.Download_File, (self.download_model.rowCount(), client_file_path))
+            self.Download_File, (self.download_model.rowCount()-1, client_file_path))
         pass
+
+    def Refresh_Upload_View(self):
+        '''
+        刷新上传文件列表
+        '''
+        self.upload_model = QStandardItemModel()
+        self.upload_model.setHorizontalHeaderItem(
+            0, QStandardItem('name'))
+        self.upload_model.setHorizontalHeaderItem(
+            1, QStandardItem('status'))
+        self.upload_model.setRowCount(len(self.upload_list))
+        for i in range(len(self.upload_list)):
+            self.upload_model.setItem(
+                i, 0, QStandardItem(self.upload_list[i]))
+            self.upload_model.setItem(
+                i, 1, QStandardItem(self.upload_status[i]))
+        self.MainWindow.Show_Upload.setModel(self.upload_model)
 
     def Upload_File(self, num, client_file_path):
         '''
@@ -433,26 +522,61 @@ class MyClient:
             file = open(client_file_path, 'rb')
         except:
             self.Warning_Box('Upload error', 'Can\'t open file.')
+            self.upload_model.setItem(num, 1, QStandardItem("Failed"))
+            self.MainWindow.Show_Upload.setModel(self.upload_model)
             return
+        print("begin upload")
         while(1):
+            print("layer begin")
             try:
                 data_send = file.read(socket_maxlen)
             except:
                 self.Warning_Box('Upload error', 'Read file failed.')
-                self.upload_model.setItem(num, 1, QStandardItem("Failed"))
-                self.MainWindow.Show_Upload.setModel(self.upload_model)
+                self.upload_status[num] = 'failed'
+                self.Refresh_Upload_View()
+                # self.upload_model.setItem(num, 1, QStandardItem("Failed"))
+                # self.MainWindow.Show_Upload.setModel(self.upload_model)
                 return
+            print("layer 1")
             if data_send == None or len(data_send) == 0:
-                self.upload_model.setItem(num, 1, QStandardItem("Completed"))
-                self.MainWindow.Show_Upload.setModel(self.upload_model)
+                self.upload_status[num] = 'complete'
+                self.Refresh_Upload_View()
+                self.connection_data.close()
+                message = self.connection_id.recv(
+                    socket_maxlen).decode('UTF-8', 'strict')
+                print("message", message)
+                if self.Check_Invalid(message):
+                    self.Warning_Box('Upload error', message)
+                    return
+                # self.upload_model.setItem(num, 1, QStandardItem("Completed"))
+                # self.MainWindow.Show_Upload.setModel(self.upload_model)
                 return
+            print("layer 2")
+            print(len(data_send))
             try:
-                self.connection_data.send(str.encode(data_send))
+                self.connection_data.send(data_send)
             except:
+                print("mid etrpt")
                 self.Warning_Box('Upload error', 'File transport failed.')
-                self.upload_model.setItem(num, 1, QStandardItem("Failed"))
-                self.MainWindow.Show_Upload.setModel(self.upload_model)
+                self.upload_status[num] = 'failed'
+                self.Refresh_Upload_View()
+                # self.upload_model.setItem(num, 1, QStandardItem("Failed"))
+                # self.MainWindow.Show_Upload.setModel(self.upload_model)
+                message = self.connection_id.recv(
+                    socket_maxlen).decode('UTF-8', 'strict')
+                print("message upload", message)
+                if self.Check_Invalid(message):
+                    self.Warning_Box('Download error', message)
+                    return
                 return
+            print("layer end")
+        print("upload end")
+        message = self.connection_id.recv(
+            socket_maxlen).decode('UTF-8', 'strict')
+        print("message upload", message)
+        if self.Check_Invalid(message):
+            self.Warning_Box('Download error', message)
+            return
 
     def Upload(self):
         '''
@@ -462,29 +586,38 @@ class MyClient:
         server_file_path = self.MainWindow.Input_Path.toPlainText()
         if self.Connect_Mode():
             return
-        message_retr = 'STOR'+client_file_path+'\r\n'
-        self.connection_id.send(str.encode(message_retr))
+        message_stor = 'STOR '+server_file_path+'\r\n'
+        print("message_stor", message_stor)
+        self.connection_id.send(str.encode(message_stor))
+        if self.Connect():
+            return
+        print("message_stor sent")
         message = self.connection_id.recv(
             socket_maxlen).decode('UTF-8', 'strict')
+        print("message receive", message)
         if self.Check_Invalid(message):
             self.Warning_Box('Upload error', message)
             return
-        if self.Connect():
-            return
-        file_info = client_file_path.split('/')
+        file_info = server_file_path.split('/')
         upload_file_info = []
         upload_file_info.append(QStandardItem(file_info[-1]))
         upload_file_info.append(QStandardItem('uploading'))
+        self.upload_list.append(file_info[-1])
+        self.upload_status.append('uploading')
         self.upload_model.insertRow(
             self.upload_model.rowCount(), upload_file_info)
         _thread.start_new_thread(
-            self.Upload_File, (self.upload_model.rowCount(), client_file_path))
+            self.Upload_File, (self.upload_model.rowCount()-1, client_file_path))
         pass
 
     def Makedir(self):
         '''
         新建文件夹操作，即进行MKD命令
         '''
+        path = self.MainWindow.Input_Path.toPlainText()
+        if len(path) == 0:
+            self.Warning_Box('RMD error', 'path error')
+            return
         path = self.MainWindow.Input_Path.toPlainText()
         message_mkd = 'MKD '+path+'\r\n'
         self.connection_id.send(str.encode(message_mkd))
@@ -500,6 +633,10 @@ class MyClient:
         更换工作目录操作，即进行CWD命令
         '''
         path = self.MainWindow.Input_Path.toPlainText()
+        if len(path) == 0:
+            self.Warning_Box('RMD error', 'path error')
+            return
+        path = self.MainWindow.Input_Path.toPlainText()
         message_cwd = 'CWD '+path+'\r\n'
         self.connection_id.send(str.encode(message_cwd))
         message = self.connection_id.recv(
@@ -507,6 +644,8 @@ class MyClient:
         if self.Check_Invalid(message):
             self.Warning_Box('Changedir error', message)
             return
+        print("message cwd:", message)
+        print("begin refresh")
         self.Refresh()
         pass
 
@@ -515,6 +654,9 @@ class MyClient:
         删除目录，即进行RMD命令
         '''
         path = self.MainWindow.Input_Path.toPlainText()
+        if len(path) == 0:
+            self.Warning_Box('RMD error', 'path error')
+            return
         message_cwd = 'RMD '+path+'\r\n'
         self.connection_id.send(str.encode(message_cwd))
         message = self.connection_id.recv(
