@@ -71,12 +71,17 @@ bool Decode_Arg(int argc, char *argv[])
 {
     char a_port[10] = "-port";
     char a_root[10] = "-root";
-    char default_root[10] = "/tmp";
+    char default_root[300] = "/tmp";
+    char *buffer = getcwd(NULL, 0);
+    if (buffer == NULL)
+    {
+        printf("get dir failed\n");
+    }
     root = (char *)calloc(root_maxlen, sizeof(char));
     if (argc == 1)
     {
         port = 21;
-        strcpy(root, default_root);
+        sprintf(root, "%s/%s", buffer, default_root);
         return 0;
     }
     else if (argc == 3)
@@ -84,7 +89,7 @@ bool Decode_Arg(int argc, char *argv[])
         if (!strcmp(a_port, argv[1]))
         {
             port = atoi(argv[2]);
-            strcpy(root, default_root);
+            sprintf(root, "%s/%s", buffer, default_root);
             return 0;
         }
         else if (!strcmp(a_root, argv[1]))
@@ -99,13 +104,13 @@ bool Decode_Arg(int argc, char *argv[])
         if (!strcmp(a_port, argv[1]) && !strcmp(a_root, argv[3]))
         {
             port = atoi(argv[2]);
-            strcpy(root, argv[4]);
+            sprintf(root, "%s/%s", buffer, argv[4]);
             return 0;
         }
         else if (!strcmp(a_root, argv[1]) && !strcmp(a_port, argv[3]))
         {
             port = atoi(argv[4]);
-            strcpy(root, argv[2]);
+            sprintf(root, "%s/%s", buffer, argv[2]);
             return 0;
         }
     }
@@ -176,6 +181,7 @@ void Command_RMD(struct Connection *cont)
     {
         sprintf(path, "%s/%s", root, cont->message + 4);
     }
+    printf("RMD path: %s\n", path);
     if (access(path, 0))
     {
         printf("connection %d: rmd fail\n", cont->connection_id);
@@ -185,9 +191,18 @@ void Command_RMD(struct Connection *cont)
     else
     {
         rmdir(path);
-        printf("connection %d: rmd:%s\n", cont->connection_id, path);
-        char message_rmd_success[message_maxlen] = "250 RMD success.\r\n";
-        Write_Message(cont->connection_id, message_rmd_success);
+        if (!access(path, 0))
+        {
+            printf("connection %d: can't rmd path:%s\n", cont->connection_id, path);
+            char message_rmd_fail[message_maxlen] = "451 RMD Failed.\r\n";
+            Write_Message(cont->connection_id, message_rmd_fail);
+        }
+        else
+        {
+            printf("connection %d: rmd:%s\n", cont->connection_id, path);
+            char message_rmd_success[message_maxlen] = "250 RMD success.\r\n";
+            Write_Message(cont->connection_id, message_rmd_success);
+        }
     }
 }
 
@@ -241,7 +256,7 @@ void Command_RNTO(struct Connection *cont)
     {
         sprintf(nowpath, "%s/%s/%s", root, cont->dir, cont->message + 5);
     }
-    sprintf(cmd, "rm %s %s", cont->rename_dir, nowpath);
+    sprintf(cmd, "mv %s %s", cont->rename_dir, nowpath);
     if (system(cmd))
     {
         printf("connection %d: rename fail\n", cont->connection_id);

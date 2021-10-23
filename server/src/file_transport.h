@@ -24,6 +24,7 @@ struct File_Transport_Info
     char file_dir[root_maxlen];
     int connection_data;
     int connection_id;
+    struct Connection *cont;
 };
 
 struct File_Transport_Info *Get_File_Transport_Info(struct Connection *cont);

@@ -27,6 +27,7 @@ int main(int argc, char *argv[])
         printf("arg invaild\n");
         return 0;
     }
+    printf("root:%s\n", root);
     if (Server_Init())
     {
         return 0;

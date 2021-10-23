@@ -66,6 +66,7 @@ bool Read_Message(struct Connection *cont)
         }
         else
         {
+            printf("read%d\n", n);
             p += n;
             if (cont->message[p - 1] == '\n' || cont->message[p - 1] == '\r')
                 break;

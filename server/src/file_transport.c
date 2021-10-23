@@ -42,7 +42,7 @@ bool Connect_PORT(struct Connection *cont)
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(cont->port);
-    printf("connection %d: ip:port %s:%d\n", cont->connection_id, cont->ip, cont->port);
+    printf("1connection %d: ip:port %s:%d\n", cont->connection_id, cont->ip, cont->port);
     if (inet_pton(AF_INET, cont->ip, &addr.sin_addr) <= 0)
     {
         printf("Error inet_pton(): %s:(%d)\n", strerror(errno), errno);
@@ -66,6 +66,7 @@ bool Connect_PORT(struct Connection *cont)
 */
 bool Connect_PASV(struct Connection *cont)
 {
+    // printf("in pasv %d\n", cont->connection_listen);
     if ((cont->connection_data = accept(cont->connection_listen, NULL, NULL)) == -1)
     {
         printf("connection %d: pasv listen error\n", cont->connection_id);
@@ -84,8 +85,8 @@ void Command_RETR(struct Connection *cont)
 {
     if (Connect_Data(cont))
     {
-        char message_connect_fail[message_maxlen] = "425 Can't open data connection.\r\n";
-        Write_Message(cont->connection_id, message_connect_fail);
+        // char message_connect_fail[message_maxlen] = "425 Can't open data connection.\r\n";
+        // Write_Message(cont->connection_id, message_connect_fail);
         return;
     }
 
@@ -112,8 +113,8 @@ void Command_STOR(struct Connection *cont)
 {
     if (Connect_Data(cont))
     {
-        char message_connect_fail[message_maxlen] = "425 Can't open data connection.\r\n";
-        Write_Message(cont->connection_id, message_connect_fail);
+        // char message_connect_fail[message_maxlen] = "425 Can't open data connection.\r\n";
+        // Write_Message(cont->connection_id, message_connect_fail);
         return;
     }
 
@@ -140,10 +141,11 @@ void Command_LIST(struct Connection *cont)
 {
     if (Connect_Data(cont))
     {
-        char message_connect_fail[message_maxlen] = "425 Can't open data connection.\r\n";
-        Write_Message(cont->connection_id, message_connect_fail);
+        // char message_connect_fail[message_maxlen] = "425 Can't open data connection.\r\n";
+        // Write_Message(cont->connection_id, message_connect_fail);
         return;
     }
+    printf("list_connected\n");
 
     struct File_Transport_Info *info = Get_File_Transport_Info(cont);
     if (info == NULL)
@@ -157,6 +159,7 @@ void Command_LIST(struct Connection *cont)
     Close_Connectionid(cont->connection_listen);
     cont->connection_mode = NONE_MODE;
     pthread_t data_transport_thread;
+    printf("list_transport\n");
     pthread_create(&data_transport_thread, NULL, LIST_Transport, (void *)info);
     pthread_detach(data_transport_thread);
 }
@@ -173,19 +176,25 @@ bool File_Transport(struct File_Transport_Info *info, FILE *file)
 {
     char Buffer[socket_maxlen];
     memset(Buffer, 0, sizeof(char) * socket_maxlen);
+    printf("begin file transport %d\n", info->connection_data);
     while (!feof(file))
     {
         int len = fread(Buffer, sizeof(char), socket_maxlen, file);
+        printf("len:%d\n", len);
+        printf("%s\n", Buffer);
         int sent_len = 0;
         while (sent_len < len)
         {
             int len_sent = write(info->connection_data, Buffer + sent_len, len - sent_len);
+            printf("%s %d %d\n", strerror(errno), errno, info->connection_data);
+            printf("len_sent:%d\n", len_sent);
             if (len_sent < 0)
             {
                 fclose(file);
                 char message_trans_fail[message_maxlen] = "426 Transport error.\r\n";
                 Write_Message(info->connection_id, message_trans_fail);
                 close(info->connection_data);
+                info->cont->connection_data = -1;
                 free(info);
                 return 1;
             }
@@ -213,20 +222,10 @@ void *File_Transport_Data(void *info_)
         char message_trans_fail[message_maxlen] = "451 File open error.\r\n";
         Write_Message(info->connection_id, message_trans_fail);
         close(info->connection_data);
+        info->cont->connection_data = -1;
         free(info);
         pthread_exit(0);
     }
-
-    // int index = fseek(file, 0, SEEK_SET);
-    // if (index != 0)
-    // {
-    //     fclose(file);
-    //     char message_trans_fail[message_maxlen] = "451 File find error.\r\n";
-    //     Write_Message(info->connection_id, message_trans_fail);
-    //     close(info->connection_data);
-    //     free(info);
-    //     pthread_exit(0);
-    // }
 
     if (File_Transport(info, file))
         pthread_exit(0);
@@ -235,6 +234,7 @@ void *File_Transport_Data(void *info_)
     char message_trans_success[message_maxlen] = "226 Data Transport success.\r\n";
     Write_Message(info->connection_id, message_trans_success);
     close(info->connection_data);
+    info->cont->connection_data = -1;
     free(info);
     pthread_exit(0);
     return NULL;
@@ -254,20 +254,10 @@ void *File_Transport_Receive(void *info_)
         char message_trans_fail[message_maxlen] = "451 File open error.\r\n";
         Write_Message(info->connection_id, message_trans_fail);
         close(info->connection_data);
+        info->cont->connection_data = -1;
         free(info);
         pthread_exit(0);
     }
-
-    // int index = fseek(file, 0, SEEK_SET);
-    // if (index != 0)
-    // {
-    //     fclose(file);
-    //     char message_trans_fail[message_maxlen] = "451 File find error.\r\n";
-    //     Write_Message(info->connection_id, message_trans_fail);
-    //     close(info->connection_data);
-    //     free(info);
-    //     pthread_exit(0);
-    // }
 
     char Buffer[socket_maxlen];
     memset(Buffer, 0, sizeof(char) * socket_maxlen);
@@ -280,6 +270,7 @@ void *File_Transport_Receive(void *info_)
             char message_receive_fail[message_maxlen] = "426 Connection error.\r\n";
             Write_Message(info->connection_id, message_receive_fail);
             close(info->connection_data);
+            info->cont->connection_data = -1;
             free(info);
             pthread_exit(0);
         }
@@ -294,6 +285,7 @@ void *File_Transport_Receive(void *info_)
     char message_trans_success[message_maxlen] = "226 Data Receive success.\r\n";
     Write_Message(info->connection_id, message_trans_success);
     close(info->connection_data);
+    info->cont->connection_data = -1;
     free(info);
     pthread_exit(0);
 }
@@ -316,6 +308,7 @@ void *LIST_Transport(void *info_)
         char message_popen_fail[message_maxlen] = "451 Can't get file list.\r\n";
         Write_Message(info->connection_id, message_popen_fail);
         close(info->connection_data);
+        info->cont->connection_data = -1;
         free(info);
         pthread_exit(0);
     }
@@ -327,6 +320,7 @@ void *LIST_Transport(void *info_)
     char message_trans_success[message_maxlen] = "226 LIST Transport success.\r\n";
     Write_Message(info->connection_id, message_trans_success);
     close(info->connection_data);
+    info->cont->connection_data = -1;
     free(info);
     pthread_exit(0);
 }
@@ -342,6 +336,7 @@ struct File_Transport_Info *Get_File_Transport_Info(struct Connection *cont)
 {
     // TODO
     struct File_Transport_Info *info = (struct File_Transport_Info *)malloc(sizeof(struct File_Transport_Info));
+    info->cont = cont;
     info->connection_id = cont->connection_id;
     info->connection_data = cont->connection_data;
     char *file_path = cont->message + 5;

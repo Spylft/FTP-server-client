@@ -19,7 +19,7 @@
 #define RNTO 16
 #define ABOR 17
 
-#define socket_maxlen 8192
+#define socket_maxlen 4096
 #define root_maxlen 300
 #define ip_maxlen 30
 #define message_maxlen 300

@@ -24,7 +24,8 @@ struct Connection *New_Connection(int connection_id)
     ret->connection_data = -1;
     ret->connection_listen = -1;
     ret->is_RNFR = 0;
-    ret->dir[0] = '\0';
+    ret->dir[0] = '/';
+    ret->dir[1] = '\0';
     // strcpy(ret->dir, root);
     return ret;
 }
@@ -308,7 +309,7 @@ void Connection_Running(struct Connection *cont)
             int port = ip_port >> 32;
             int ip = ip_port ^ (((long long)port) << 32);
             Set_IP_Port(ip, port, PORT_MODE, cont);
-            printf("connection %d: ip:%s port:%d mode:port\n", cont->connection_id, cont->ip, cont->port);
+            printf("2connection %d: ip:%s port:%d mode:port\n", cont->connection_id, cont->ip, cont->port);
             char message_port[message_maxlen] = "200 Command PORT okay.\r\n";
             Write_Message(cont->connection_id, message_port);
             break;
@@ -318,7 +319,7 @@ void Connection_Running(struct Connection *cont)
             if (strlen(cont->message) > 4)
             {
                 printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Command PASV Parament error.\r\n";
+                char message_para_error[message_maxlen * 30] = "504 Command PASV Parament error.\r\n";
                 sprintf(message_para_error, "%lu%s\n", strlen(cont->message), cont->message);
                 Write_Message(cont->connection_id, message_para_error);
                 return;
@@ -339,7 +340,7 @@ void Connection_Running(struct Connection *cont)
             //     Write_Message(cont->connection_id, message_parameter_error);
             //     break;
             // }
-            printf("connection %d: ip:%s port:%d mode:pasv\n", cont->connection_id, cont->ip, cont->port);
+            printf("3connection %d: ip:%s port:%d mode:pasv\n", cont->connection_id, cont->ip, cont->port);
             char message_pasv[message_maxlen]; // = "227 Entering Passive Mode (";
             sprintf(message_pasv, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d).\r\n", 127, 0, 0, 1, ((cont->port) >> 8) & 255, (cont->port) & 255);
             // int len = strlen(message_pasv);
@@ -420,13 +421,6 @@ void Connection_Running(struct Connection *cont)
         }
         case PWD:
         {
-            if (strlen(cont->message) <= 4)
-            {
-                printf("connection %d: parament error\n", cont->connection_id);
-                char message_para_error[message_maxlen] = "504 Command PWD Parament error.\r\n";
-                Write_Message(cont->connection_id, message_para_error);
-                return;
-            }
             printf("connection %d: dir:%s\n", cont->connection_id, cont->dir);
             char message_PWD[root_maxlen + 30];
             sprintf(message_PWD, "257 Current Path is \"%s\"", cont->dir);
@@ -492,6 +486,7 @@ void Connection_Running(struct Connection *cont)
 */
 int Get_Random_Port()
 {
+    // return 35555 + rand() % (37000 - 35555);
     return 20000 + rand() % 45536;
 }
 
@@ -505,6 +500,79 @@ int Get_Random_Port()
 返回：
     0成功 1失败
 */
+int getIfaceName(char *iface_name, int len)
+{
+    int r = -1;
+    int flgs, ref, use, metric, mtu, win, ir;
+    unsigned long int d, g, m;
+    char devname[20];
+    FILE *fp = NULL;
+
+    if ((fp = fopen("/proc/net/route", "r")) == NULL)
+    {
+        perror("fopen error!\n");
+        return -1;
+    }
+
+    if (fscanf(fp, "%*[^\n]\n") < 0)
+    {
+        fclose(fp);
+        return -1;
+    }
+
+    while (1)
+    {
+        r = fscanf(fp, "%19s%lx%lx%X%d%d%d%lx%d%d%d\n",
+                   devname, &d, &g, &flgs, &ref, &use,
+                   &metric, &m, &mtu, &win, &ir);
+        if (r != 11)
+        {
+            if ((r < 0) && feof(fp))
+            {
+                break;
+            }
+            continue;
+        }
+
+        strncpy(iface_name, devname, len);
+        fclose(fp);
+        return 0;
+    }
+
+    fclose(fp);
+
+    return -1;
+}
+
+int getIpAddress(char *iface_name, char *ip_addr, int len)
+{
+    int sockfd = -1;
+    struct ifreq ifr;
+    struct sockaddr_in *addr = NULL;
+
+    memset(&ifr, 0, sizeof(struct ifreq));
+    strcpy(ifr.ifr_name, iface_name);
+    addr = (struct sockaddr_in *)&ifr.ifr_addr;
+    addr->sin_family = AF_INET;
+
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    {
+        perror("create socket error!\n");
+        return -1;
+    }
+
+    if (ioctl(sockfd, SIOCGIFADDR, &ifr) == 0)
+    {
+        strncpy(ip_addr, inet_ntoa(addr->sin_addr), len);
+        close(sockfd);
+        return 0;
+    }
+
+    close(sockfd);
+
+    return -1;
+}
+
 bool Set_IP_Port(int ip, int port, int mode, struct Connection *cont)
 {
     Close_Connection(cont);
@@ -512,7 +580,21 @@ bool Set_IP_Port(int ip, int port, int mode, struct Connection *cont)
     {
         cont->port = Get_Random_Port();
         cont->connection_mode = mode;
-        sprintf(cont->ip, "%s", "127.0.0.1");
+        if (!isdigit(cont->ip[0]))
+        {
+            char iface_name[20];
+            if (getIfaceName(iface_name, sizeof(iface_name)) < 0)
+            {
+                printf("get ip error\n");
+                return 1;
+            }
+            if (getIpAddress(iface_name, cont->ip, 15) < 0)
+            {
+                printf("get ip error\n");
+                return 1;
+            }
+        }
+        // sprintf(cont->ip, "%s", "127.0.0.1");
         struct sockaddr_in Address;
         if ((cont->connection_listen = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
         {
@@ -523,6 +605,8 @@ bool Set_IP_Port(int ip, int port, int mode, struct Connection *cont)
         memset(&Address, 0, sizeof(Address));
         Address.sin_family = AF_INET;
         Address.sin_port = htons(cont->port);
+
+        printf("ip:%s\n", cont->ip);
 
         if (inet_pton(AF_INET, cont->ip, &Address.sin_addr) <= 0)
         {
@@ -575,5 +659,7 @@ void Close_Connectionid(int id)
 void Close_Connection(struct Connection *cont)
 {
     Close_Connectionid(cont->connection_data);
+    cont->connection_data = -1;
     Close_Connectionid(cont->connection_listen);
+    cont->connection_listen = -1;
 }

@@ -13,6 +13,8 @@
 #include <netinet/in.h> /* INET constants and stuff */
 #include <arpa/inet.h>  /* IP address conversion stuff */
 #include <netdb.h>      /* gethostbyname */
+#include <sys/ioctl.h>
+#include <net/if.h>
 #include <errno.h>
 #include <pthread.h>
 
