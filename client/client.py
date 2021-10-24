@@ -134,14 +134,16 @@ class MyClient:
         返回：
             0成功 1失败
         '''
-        if self.connection_data != None:
-            self.connection_data.close()
-            self.connection_data = None
-        if self.connection_listen != None:
-            self.connection_listen.close()
-            self.connection_listen = None
+        # self.Close_connection()
+        # if self.connection_data != None:
+        #     self.connection_data.close()
+        #     self.connection_data = None
+        # if self.connection_listen != None:
+        #     self.connection_listen.close()
+        #     self.connection_listen = None
         if self.transport_mode == 0:  # PORT
-            port = int(self.MainWindow.Input_ModePort.toPlainText())
+            port = self.port_arg
+            port = self.Get_Random_Port()
             self.connection_listen = socket.socket()
             self.connection_listen.bind((self.client_ip, port))
             self.connection_listen.listen(10)
@@ -153,18 +155,19 @@ class MyClient:
             print(port, message_port)
             self.connection_id.send(str.encode(message_port))
             print(self.connection_id)
-            try:
-                message = self.connection_id.recv(
-                    socket_maxlen).decode('UTF-8', 'strict')
-                if self.Check_Invalid(message):
-                    self.Warning_Box('Port command error', message)
-                    return 1
-                print(message)
-            except:
-                print("no message")
-                pass
+            # try:
+            #     message = self.connection_id.recv(
+            #         socket_maxlen).decode('UTF-8', 'strict')
+            #     if self.Check_Invalid(message):
+            #         self.Warning_Box('Port command error', message)
+            #         return 1
+            #     print("PORT message:", message)
+            # except:
+            #     print("no message")
+            #     pass
             print("end recv")
             print("begin listen")
+            print(self.connection_listen)
         else:
             message_pasv = "PASV\r\n"
             self.connection_id.send(str.encode(message_pasv))
@@ -173,7 +176,7 @@ class MyClient:
             if self.Check_Invalid(message):
                 self.Warning_Box('PASV command error', message)
                 return 1
-            print(message)
+            print("PASV_message ", message)
             server_ip_port_re = re.match(
                 r'.*[(]([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3})[)].*', message)
             self.server_port_data = int(
@@ -187,17 +190,24 @@ class MyClient:
             0成功 1失败
         '''
         print("begin connect")
-        message = self.connection_id.recv(
-            socket_maxlen).decode('UTF-8', 'strict')
-        if self.Check_Invalid(message):
-            self.Warning_Box('Port command error', message)
-            return 1
         if self.transport_mode == 0:  # PORT
             try:
+                message = self.connection_id.recv(
+                    socket_maxlen).decode('UTF-8', 'strict')
+                if self.Check_Invalid(message):
+                    self.Warning_Box('Port command error', message)
+                    return 1
+                print("PORT message:", message)
                 self.connection_data, ip_port = self.connection_listen.accept()
             except:
+                self.Close_connection()
+                # self.connection_listen.close()
+                # self.connection_listen = None
                 self.Warning_Box('Connect error', 'Can\'t listen connection')
                 return 1
+            # self.Close_connection()
+            # self.connection_listen.close()
+            # self.connection_listen = None
         else:  # PASV
             try:
                 self.connection_data = socket.socket()
@@ -208,7 +218,21 @@ class MyClient:
             except:
                 self.Warning_Box('Connect error', 'Data connection failed')
                 return 1
+        print("connect end")
         return 0
+
+    def Close_connection(self):
+        if self.connection_listen != None:
+            self.connection_listen.close()
+            self.connection_listen = None
+        # self.connection_listen = socket.socket()
+        print("Close listen")
+        if self.connection_data != None:
+            self.connection_data.close()
+            self.connection_data = None
+            print("Close data")
+            # self.connection_data = socket.socket()
+        print("Close end")
 
     def Login(self):
         '''
@@ -264,6 +288,8 @@ class MyClient:
         self.MainWindow.Input_Username.setReadOnly(True)
         self.MainWindow.Input_Password.setReadOnly(True)
 
+        print("login:USER PASS")
+
         self.Refresh()
 
         self.get_logined = True
@@ -297,6 +323,7 @@ class MyClient:
         self.MainWindow.Input_Port.setReadOnly(False)
         self.MainWindow.Input_Username.setReadOnly(False)
         self.MainWindow.Input_Password.setReadOnly(False)
+        self.transport_mode = 0
 
         self.get_logined = False
         pass
@@ -313,21 +340,24 @@ class MyClient:
         self.connection_id.send(str.encode(message_list))
         if self.Connect():
             return
-        # message = self.connection_id.recv(
-        #     socket_maxlen).decode('UTF-8', 'strict')
-        # if self.Check_Invalid(message):
-        #     self.Warning_Box('Refresh error', message)
-        #     return
+        message = self.connection_id.recv(
+            socket_maxlen).decode('UTF-8', 'strict')
+        print("list:", message)
+        if self.Check_Invalid(message):
+            self.Warning_Box('Refresh error', message)
+            return
         list_data = self.connection_data.recv(
             socket_maxlen).decode('UTF-8', 'strict')
         print(len(list_data))
+        print(list_data)
         message = self.connection_id.recv(
             socket_maxlen).decode('UTF-8', 'strict')
         print(message)
         if self.Check_Invalid(message):
             self.Warning_Box('Refresh error', message)
             return
-        print(list_data)
+        # self.connection_data.close()
+        # self.connection_data = None
         data_list = list_data.split('\n')
         self.MainWindow.Show_File.setModel(self.file_model)
         self.file_model = QStandardItemModel()
@@ -360,6 +390,7 @@ class MyClient:
                 data_info[5]+' '+data_info[6]+' '+data_info[7]))
             self.file_model.insertRow(self.file_model.rowCount(), model_insert)
         self.MainWindow.Show_File.setModel(self.file_model)
+        self.Close_connection()
 
         # PWD
         message_pwd = 'PWD\r\n'
@@ -369,6 +400,7 @@ class MyClient:
         if self.Check_Invalid(message):
             self.Warning_Box('Refresh error', message)
             return
+        print("PWD message:", message)
         current_dir = message.split()[-1]
         current_dir = current_dir[1:-1]
         self.MainWindow.Input_Path.setPlainText(current_dir)
@@ -429,6 +461,9 @@ class MyClient:
             self.Warning_Box('Download error', 'Can\'t open file.')
             self.download_status[num] = 'failed'
             self.Refresh_Download_View()
+            self.Close_connection()
+            # self.connection_data.close()
+            # self.connection_data = None
             return
         print("begin download")
         while(1):
@@ -440,10 +475,14 @@ class MyClient:
             except:
                 self.Warning_Box('Download error', 'Download failed.')
                 self.download_status[num] = 'failed'
+                self.Close_connection()
+                # self.connection_data.close()
+                # self.connection_data = None
                 self.Refresh_Download_View()
                 message = self.connection_id.recv(
                     socket_maxlen).decode('UTF-8', 'strict')
                 print("message download", message)
+                print("message download end")
                 if self.Check_Invalid(message):
                     self.Warning_Box('Download error', message)
                     return
@@ -452,10 +491,14 @@ class MyClient:
                 return
             if data_receive == None or len(data_receive) == 0:
                 self.download_status[num] = 'complete'
+                self.Close_connection()
+                # self.connection_data.close()
+                # self.connection_data = None
                 self.Refresh_Download_View()
                 message = self.connection_id.recv(
                     socket_maxlen).decode('UTF-8', 'strict')
                 print("message download", message)
+                print("message download end")
                 if self.Check_Invalid(message):
                     self.Warning_Box('Download error', message)
                     return
@@ -467,9 +510,13 @@ class MyClient:
                 return
             file.write(data_receive)
             # print(len(data_receive))
+        self.Close_connection()
+        # self.connection_data.close()
+        # self.connection_data = None
         message = self.connection_id.recv(
             socket_maxlen).decode('UTF-8', 'strict')
         print("message download", message)
+        print("message download end")
         if self.Check_Invalid(message):
             self.Warning_Box('Download error', message)
             return
@@ -485,15 +532,16 @@ class MyClient:
         message_retr = 'RETR '+server_file_path+'\r\n'
         print("message_retr ", message_retr)
         self.connection_id.send(str.encode(message_retr))
-        print("message_retr send")
         if self.Connect():
             return
-        # message = self.connection_id.recv(
-        #     socket_maxlen).decode('UTF-8', 'strict')
-        # print("message download", message)
-        # if self.Check_Invalid(message):
-        #     self.Warning_Box('Download error', message)
-        #     return
+        print("message_retr send")
+        message = self.connection_id.recv(
+            socket_maxlen).decode('UTF-8', 'strict')
+        print("message download", message)
+        print("message download end")
+        if self.Check_Invalid(message):
+            self.Warning_Box('Download error', message)
+            return
         file_info = client_file_path.split('/')
         download_file_info = []
         download_file_info.append(QStandardItem(file_info[-1]))
@@ -533,8 +581,13 @@ class MyClient:
             file = open(client_file_path, 'rb')
         except:
             self.Warning_Box('Upload error', 'Can\'t open file.')
-            self.upload_model.setItem(num, 1, QStandardItem("Failed"))
-            self.MainWindow.Show_Upload.setModel(self.upload_model)
+            self.upload_status[num] = 'failed'
+            self.Refresh_Upload_View()
+            self.Close_connection()
+            # self.upload_model.setItem(num, 1, QStandardItem("Failed"))
+            # self.MainWindow.Show_Upload.setModel(self.upload_model)
+            # self.connection_data.close()
+            # self.connection_data = None
             return
         print("begin upload")
         while(1):
@@ -545,6 +598,7 @@ class MyClient:
                 self.Warning_Box('Upload error', 'Read file failed.')
                 self.upload_status[num] = 'failed'
                 self.Refresh_Upload_View()
+                self.Close_connection()
                 # self.upload_model.setItem(num, 1, QStandardItem("Failed"))
                 # self.MainWindow.Show_Upload.setModel(self.upload_model)
                 return
@@ -552,8 +606,9 @@ class MyClient:
             if data_send == None or len(data_send) == 0:
                 self.upload_status[num] = 'complete'
                 self.Refresh_Upload_View()
-                self.connection_data.close()
-                self.connection_data = None
+                self.Close_connection()
+                # self.connection_data.close()
+                # self.connection_data = None
                 message = self.connection_id.recv(
                     socket_maxlen).decode('UTF-8', 'strict')
                 print("message", message)
@@ -571,6 +626,9 @@ class MyClient:
                 print("mid etrpt")
                 self.Warning_Box('Upload error', 'File transport failed.')
                 self.upload_status[num] = 'failed'
+                self.Close_connection()
+                # self.connection_data.close()
+                # self.connection_data = None
                 self.Refresh_Upload_View()
                 # self.upload_model.setItem(num, 1, QStandardItem("Failed"))
                 # self.MainWindow.Show_Upload.setModel(self.upload_model)
@@ -583,6 +641,9 @@ class MyClient:
                 return
             print("layer end")
         print("upload end")
+        # self.connection_data.close()
+        # self.connection_data = None
+        self.Close_connection()
         message = self.connection_id.recv(
             socket_maxlen).decode('UTF-8', 'strict')
         print("message upload", message)
@@ -601,15 +662,15 @@ class MyClient:
         message_stor = 'STOR '+server_file_path+'\r\n'
         print("message_stor", message_stor)
         self.connection_id.send(str.encode(message_stor))
+        print("message_stor sent")
         if self.Connect():
             return
-        # print("message_stor sent")
-        # message = self.connection_id.recv(
-        #     socket_maxlen).decode('UTF-8', 'strict')
-        # print("message receive", message)
-        # if self.Check_Invalid(message):
-        #     self.Warning_Box('Upload error', message)
-        #     return
+        message = self.connection_id.recv(
+            socket_maxlen).decode('UTF-8', 'strict')
+        print("message receive", message)
+        if self.Check_Invalid(message):
+            self.Warning_Box('Upload error', message)
+            return
         file_info = server_file_path.split('/')
         upload_file_info = []
         upload_file_info.append(QStandardItem(file_info[-1]))
@@ -682,7 +743,8 @@ class MyClient:
         更换传输模式为主动模式(PORT)，保存port参数，但不向server传输命令
         '''
         self.transport_mode = 0
-        self.port_arg = int(self.MainWindow.Input_Port.toPlainText())
+        self.port_arg = int(self.MainWindow.Input_ModePort.toPlainText())
+        self.port_arg = self.Get_Random_Port()
         pass
 
     def Pasvmode(self):
